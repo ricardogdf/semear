@@ -1,0 +1,16 @@
+{
+  "name": "@semear/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./eslint/next": "./eslint/next.mjs",
+    "./typescript/base.json": "./typescript/base.json",
+    "./tailwind/preset": "./tailwind/preset.ts"
+  }
+}

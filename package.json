@@ -1,0 +1,34 @@
+{
+  "name": "semear-monorepo",
+  "private": true,
+  "packageManager": "npm@10.9.3",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev --parallel",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "postinstall": "npm run db:generate",
+    "db:generate": "npm run db:generate --workspace @semear/database",
+    "db:push": "npm run db:push --workspace @semear/database",
+    "db:seed": "npm run db:seed --workspace @semear/database"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.25.1",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.25.1",
+    "eslint-config-next": "^15.3.0",
+    "eslint-config-prettier": "^10.1.2",
+    "postcss": "^8.5.3",
+    "prettier": "^3.5.3",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.3",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.30.1"
+  }
+}
