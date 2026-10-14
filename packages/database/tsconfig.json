@@ -1,7 +1,0 @@
-{
-  "extends": "@semear/config/typescript/base.json",
-  "compilerOptions": {
-    "rootDir": "."
-  },
-  "include": ["src/**/*.ts", "prisma/**/*.ts"]
-}
