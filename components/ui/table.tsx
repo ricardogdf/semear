@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { cn } from "@semear/utils";
+import { cn } from "@/lib/utils";
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
@@ -60,29 +60,16 @@ const TableCell = React.forwardRef<
   <td ref={ref} className={cn("px-4 py-4 align-middle", className)} {...props} />
 ));
 
-const TableCaption = React.forwardRef<
-  HTMLTableCaptionElement,
-  React.HTMLAttributes<HTMLTableCaptionElement>
->(({ className, ...props }, ref) => (
-  <caption
-    ref={ref}
-    className={cn("mt-4 text-sm text-muted-foreground", className)}
-    {...props}
-  />
-));
-
 Table.displayName = "Table";
 TableHeader.displayName = "TableHeader";
 TableBody.displayName = "TableBody";
 TableRow.displayName = "TableRow";
 TableHead.displayName = "TableHead";
 TableCell.displayName = "TableCell";
-TableCaption.displayName = "TableCaption";
 
 export {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,

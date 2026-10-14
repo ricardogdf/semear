@@ -4,11 +4,9 @@ import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
-import { cn } from "@semear/utils";
+import { cn } from "@/lib/utils";
 
 const Modal = Dialog.Root;
-const ModalTrigger = Dialog.Trigger;
-const ModalClose = Dialog.Close;
 
 const ModalPortal = ({ children }: { children: React.ReactNode }) => (
   <Dialog.Portal>{children}</Dialog.Portal>
@@ -34,14 +32,14 @@ const ModalContent = React.forwardRef<
     <Dialog.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-[min(92vw,32rem)] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-border bg-card p-6 shadow-2xl focus:outline-none",
+        "fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[min(calc(100vw-2rem),32rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[28px] border border-border bg-card p-5 shadow-2xl focus:outline-none sm:p-6",
         className,
       )}
       {...props}
     >
       {children}
       <Dialog.Close
-        className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+        className="absolute right-3 top-3 rounded-full p-2.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Fechar modal"
       >
         <X className="h-4 w-4" />
@@ -50,12 +48,32 @@ const ModalContent = React.forwardRef<
   </ModalPortal>
 ));
 
-const ModalHeader = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col gap-2", className)} {...props} />
-);
+/** Painel lateral (drawer) para navegação em telas pequenas. */
+const SheetContent = React.forwardRef<
+  React.ElementRef<typeof Dialog.Content>,
+  React.ComponentPropsWithoutRef<typeof Dialog.Content>
+>(({ className, children, ...props }, ref) => (
+  <ModalPortal>
+    <ModalOverlay />
+    <Dialog.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[min(85vw,20rem)] flex-col overflow-y-auto border-r border-border bg-card shadow-2xl focus:outline-none",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      <Dialog.Close
+        className="absolute right-3 top-3 rounded-full p-2.5 text-muted-foreground transition hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Fechar menu"
+      >
+        <X className="h-5 w-5" />
+      </Dialog.Close>
+    </Dialog.Content>
+  </ModalPortal>
+));
+SheetContent.displayName = "SheetContent";
 
 const ModalTitle = React.forwardRef<
   React.ElementRef<typeof Dialog.Title>,
@@ -84,12 +102,4 @@ ModalContent.displayName = "ModalContent";
 ModalTitle.displayName = "ModalTitle";
 ModalDescription.displayName = "ModalDescription";
 
-export {
-  Modal,
-  ModalClose,
-  ModalContent,
-  ModalDescription,
-  ModalHeader,
-  ModalTitle,
-  ModalTrigger,
-};
+export { Modal, ModalContent, ModalDescription, ModalTitle, SheetContent };

@@ -3,7 +3,7 @@
 import { MoonStar, SunMedium } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { Button } from "@semear/ui";
+import { Button } from "@/components/ui";
 
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();

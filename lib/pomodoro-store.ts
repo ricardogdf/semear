@@ -25,7 +25,7 @@ interface PomodoroStore {
 
 export const usePomodoroStore = create<PomodoroStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       mode: "focus",
       isRunning: false,
       remainingSeconds: focusDuration,
@@ -41,24 +41,26 @@ export const usePomodoroStore = create<PomodoroStore>()(
         })),
       tick: () =>
         set((state) => {
-          if (!state.isRunning) {
-            return state;
-          }
+          if (!state.isRunning) return state;
 
           if (state.remainingSeconds <= 1) {
-            const nextMode = state.mode === "focus" ? "break" : "focus";
-
+            if (state.mode === "focus") {
+              // Focus ended → auto-start break
+              return {
+                mode: "break" as PomodoroMode,
+                isRunning: true,
+                remainingSeconds: state.breakDuration,
+              };
+            }
+            // Break ended → return to focus idle, user presses play to restart
             return {
-              mode: nextMode,
+              mode: "focus" as PomodoroMode,
               isRunning: false,
-              remainingSeconds:
-                nextMode === "focus" ? state.focusDuration : state.breakDuration,
+              remainingSeconds: state.focusDuration,
             };
           }
 
-          return {
-            remainingSeconds: state.remainingSeconds - 1,
-          };
+          return { remainingSeconds: state.remainingSeconds - 1 };
         }),
       setMode: (mode) =>
         set((state) => ({
