@@ -1,0 +1,288 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SubjectStatus {
+  IN_PROGRESS
+  APPROVED
+  FAILED
+}
+
+enum ContentSource {
+  TXT
+  PDF
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AiProvider {
+  ANTHROPIC
+  OPENAI
+  GEMINI
+}
+
+/// Estado do processamento por IA de uma aula.
+enum ContentProcessingStatus {
+  /// Texto salvo; processamento por IA em andamento.
+  PROCESSING
+  /// Conteúdo didático identificado e material gerado.
+  COMPLETED
+  /// Aula introdutória/administrativa: processada, sem geração de questões.
+  NO_QUESTIONS_NEEDED
+  /// Conteúdo insuficiente ou ambíguo: revisão humana recomendada.
+  NEEDS_REVIEW
+  /// Falha técnica (provedor, credencial, resposta inválida). Pode ser reprocessada.
+  FAILED
+}
+
+enum ContentClassification {
+  SUBSTANTIVE
+  INTRODUCTORY
+  ADMINISTRATIVE
+  INSUFFICIENT
+}
+
+enum ProcessingRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model User {
+  id                     String                 @id @default(cuid())
+  email                  String                 @unique
+  name                   String
+  avatarUrl              String?
+  role                   UserRole               @default(USER)
+  isActive               Boolean                @default(true)
+  /// Hash scrypt da senha. Nulo até o usuário concluir o primeiro acesso.
+  passwordHash           String?
+  passwordUpdatedAt      DateTime?
+  lastLoginAt            DateTime?
+  defaultAiProvider      AiProvider?
+  createdById            String?
+  createdBy              User?                  @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers           User[]                 @relation("UserCreatedBy")
+  sessions               Session[]
+  passwordSetupTokens    PasswordSetupToken[]   @relation("SetupTokenOwner")
+  issuedSetupTokens      PasswordSetupToken[]   @relation("SetupTokenIssuer")
+  reviewedAccessRequests AccessRequest[]        @relation("AccessRequestReviewer")
+  createdFromRequests    AccessRequest[]        @relation("AccessRequestCreatedUser")
+  aiCredentials          AiCredential[]
+  processingRuns         ContentProcessingRun[]
+  courses                Course[]
+  subjects               Subject[]
+  simulationResults      SimulationResult[]
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+}
+
+/// Sessão de login. O cookie guarda o token opaco; o banco guarda apenas o SHA-256.
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Código de uso único para o usuário definir a própria senha (primeiro acesso ou redefinição).
+model PasswordSetupToken {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  userId      String
+  user        User      @relation("SetupTokenOwner", fields: [userId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?     @relation("SetupTokenIssuer", fields: [createdById], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model AccessRequest {
+  id            String              @id @default(cuid())
+  name          String
+  email         String
+  message       String?
+  status        AccessRequestStatus @default(PENDING)
+  ipAddress     String?
+  reviewedById  String?
+  reviewedBy    User?               @relation("AccessRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdUserId String?
+  createdUser   User?               @relation("AccessRequestCreatedUser", fields: [createdUserId], references: [id], onDelete: SetNull)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+/// Eventos para limitação de taxa (login, solicitações de acesso, uploads).
+model RateLimitEvent {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
+/// Credencial de API de um provedor de IA, criptografada com AES-256-GCM.
+model AiCredential {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider        AiProvider
+  encryptedKey    String
+  iv              String
+  authTag         String
+  keyVersion      Int        @default(1)
+  /// Últimos 4 caracteres, apenas para identificação visual.
+  keyHint         String
+  defaultModel    String?
+  /// Modelos compatíveis retornados pelo provedor na última validação.
+  availableModels Json       @default("[]")
+  lastValidatedAt DateTime?
+  lastErrorCode   String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Subject {
+  id            String             @id @default(cuid())
+  title         String
+  instructor    String
+  workloadHours Int
+  status        SubjectStatus
+  progress      Int
+  difficulty    Int
+  userId        String
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contents      Content[]
+  simulations   Simulation[]
+  results       SimulationResult[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([userId, title])
+}
+
+model Content {
+  id                   String                  @id @default(cuid())
+  title                String
+  originalFileName     String
+  source               ContentSource
+  body                 String
+  shortSummary         String                  @default("")
+  summary              String                  @default("")
+  importantTopics      String                  @default("")
+  trainingQuestions    Json                    @default("[]")
+  processingStatus     ContentProcessingStatus @default(COMPLETED)
+  classification       ContentClassification?
+  classificationReason String?
+  /// Trechos didáticos (verificados no texto original) usados na geração de questões.
+  relevantExcerpts     Json                    @default("[]")
+  aiProvider           AiProvider?
+  aiModel              String?
+  inputTruncated       Boolean                 @default(false)
+  processedAt          DateTime?
+  errorCode            String?
+  errorMessage         String?
+  subjectId            String
+  subject              Subject                 @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  processingRuns       ContentProcessingRun[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([subjectId])
+}
+
+/// Histórico de cada execução de processamento (provedor, modelo, resultado).
+model ContentProcessingRun {
+  id                 String                 @id @default(cuid())
+  contentId          String
+  content            Content                @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider           AiProvider
+  model              String
+  status             ProcessingRunStatus    @default(RUNNING)
+  classification     ContentClassification?
+  reason             String?
+  questionsGenerated Int                    @default(0)
+  errorCode          String?
+  errorMessage       String?
+  startedAt          DateTime               @default(now())
+  finishedAt         DateTime?
+
+  @@index([contentId, startedAt])
+  @@index([userId, startedAt])
+}
+
+model Simulation {
+  id               String             @id @default(cuid())
+  title            String
+  timeLimitMinutes Int
+  questions        Json
+  maxScore         Decimal            @db.Decimal(4, 2)
+  subjectId        String
+  subject          Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  results          SimulationResult[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([subjectId])
+}
+
+model SimulationResult {
+  id             String     @id @default(cuid())
+  score          Decimal    @db.Decimal(4, 2)
+  correctAnswers Int
+  totalQuestions Int
+  answers        Json
+  submittedAt    DateTime   @default(now())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  simulationId   String
+  simulation     Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
+
+  @@index([subjectId, userId, simulationId])
+}
