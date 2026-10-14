@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 98%;
+  --foreground: 0 0% 4%;
+  --muted: 0 0% 90%;
+  --muted-foreground: 0 0% 40%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --primary: 154 53% 27%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 9%;
+  --accent: 154 53% 27%;
+  --accent-foreground: 0 0% 98%;
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 154 53% 27%;
+  --success: 150 50% 34%;
+  --success-foreground: 60 20% 96%;
+  --danger: 0 70% 54%;
+  --danger-foreground: 0 0% 100%;
+  --warning: 34 90% 55%;
+  --warning-foreground: 20 35% 16%;
+  --radius: 1.5rem;
+}
+
+.dark {
+  --background: 240 10% 4%;
+  --foreground: 0 0% 98%;
+  --muted: 240 5% 15%;
+  --muted-foreground: 240 5% 65%;
+  --card: 240 10% 6%;
+  --card-foreground: 0 0% 98%;
+  --primary: 148 42% 48%;
+  --primary-foreground: 155 40% 10%;
+  --secondary: 240 5% 12%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 148 42% 48%;
+  --accent-foreground: 155 40% 10%;
+  --border: 240 5% 15%;
+  --input: 240 5% 15%;
+  --ring: 148 42% 48%;
+  --success: 148 42% 48%;
+  --success-foreground: 155 40% 10%;
+  --danger: 0 72% 60%;
+  --danger-foreground: 0 0% 100%;
+  --warning: 38 86% 62%;
+  --warning-foreground: 20 35% 12%;
+}
+
+* {
+  @apply border-border;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root {
+  --font-heading: var(--font-geist-sans), sans-serif;
+}
+
+body {
+  @apply min-h-[100dvh] bg-background text-foreground antialiased;
+  font-family: var(--font-geist-sans), sans-serif;
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+a {
+  @apply transition-colors;
+}
+
+::selection {
+  @apply bg-primary/20 text-foreground;
+}

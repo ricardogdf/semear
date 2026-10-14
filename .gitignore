@@ -1,15 +1,12 @@
-# Dependencies
+# Dependências
 node_modules
 
-# Build / Cache
-.turbo
+# Build / cache
 .next
-dist
-.vercel
-coverage
+next-env.d.ts
 *.tsbuildinfo
 
-# Environment variables
+# Variáveis de ambiente
 .env
 .env.local
 .env*.local
@@ -18,14 +15,16 @@ coverage
 # Logs
 *.log
 
-# Database
-packages/database/prisma/dev.db
+# Testes
+test-results
+playwright-report
+coverage
 
-# IDE / AI
+# IDE / IA
 .ia/
 .vscode/
 .idea/
 
-# OS
+# Sistema operacional
 .DS_Store
 Thumbs.db

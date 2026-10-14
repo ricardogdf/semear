@@ -1,7 +1,0 @@
-{
-  "extends": "@semear/config/typescript/base.json",
-  "compilerOptions": {
-    "allowJs": true
-  },
-  "include": ["eslint/**/*.mjs", "tailwind/**/*.ts"]
-}
