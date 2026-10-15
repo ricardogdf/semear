@@ -2,7 +2,7 @@ import { ApiError, GoogleGenAI, type GenerateContentResponse } from "@google/gen
 
 import { AiProviderError, codeFromHttpStatus, redactSecrets } from "../errors";
 import type { AiModelInfo, AiProviderClient, ProviderClientOptions, StructuredRequest } from "../types";
-import { DEFAULT_TIMEOUT_MS, isTimeoutError, parseStructuredText, sortModels } from "./shared";
+import { DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT_MS, isTimeoutError, parseStructuredText, sortModels } from "./shared";
 
 /** Modelos Gemini sem geração de texto estruturado (embeddings, imagem, áudio, tempo real…). */
 const INCOMPATIBLE_PATTERN =
@@ -20,7 +20,11 @@ export function isGeminiModelCompatible(name: string, supportedActions: string[]
 export function createGeminiClient(options: ProviderClientOptions): AiProviderClient {
   const client = new GoogleGenAI({
     apiKey: options.apiKey,
-    httpOptions: { timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS },
+    httpOptions: {
+      timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      // Sem retryOptions o SDK não tenta de novo; 429/5xx ("high demand") costumam ser passageiros.
+      retryOptions: { attempts: (options.maxRetries ?? DEFAULT_MAX_RETRIES) + 1 },
+    },
   });
 
   const fail = (error: unknown): never => {

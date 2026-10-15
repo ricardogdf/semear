@@ -219,9 +219,21 @@ describe("Google Gemini", () => {
     );
     vi.stubGlobal("fetch", fetch);
 
-    const client = createGeminiClient({ apiKey: KEY });
+    const client = createGeminiClient({ apiKey: KEY, maxRetries: 0 });
     await expect(client.generateStructured("gemini-2.5-flash", request)).rejects.toMatchObject({ code: "AUTHENTICATION" });
     await expect(client.generateStructured("gemini-2.5-flash", request)).rejects.toMatchObject({ code: "UNAVAILABLE" });
+  });
+
+  it("tenta de novo após 503 passageiro", async () => {
+    const { fetch, calls } = scriptedFetch(
+      jsonResponse(503, { error: { code: 503, message: "This model is currently experiencing high demand.", status: "UNAVAILABLE" } }),
+      jsonResponse(200, { candidates: [{ content: { role: "model", parts: [{ text: '{"ok":true}' }] }, finishReason: "STOP" }] }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const client = createGeminiClient({ apiKey: KEY, maxRetries: 1 });
+    expect(await client.generateStructured("gemini-2.5-flash", request)).toEqual({ ok: true });
+    expect(calls).toHaveLength(2);
   });
 
   it("bloqueio de segurança e truncamento são erros", async () => {
