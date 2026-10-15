@@ -140,7 +140,7 @@ export function AccessRequestsScreen() {
               <p className="text-xs text-muted-foreground">
                 Recebida em {new Date(request.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
                 {request.reviewedAt
-                  ? ` · analisada por ${request.reviewedByName ?? "—"} em ${new Date(request.reviewedAt).toLocaleDateString("pt-BR")}`
+                  ? ` · analisada${request.reviewedByName ? ` por ${request.reviewedByName}` : ""} em ${new Date(request.reviewedAt).toLocaleDateString("pt-BR")}`
                   : ""}
               </p>
               {request.reviewNote ? <p className="text-xs text-muted-foreground">Observação: {request.reviewNote}</p> : null}

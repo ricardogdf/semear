@@ -115,7 +115,7 @@ async function runProcessing(userId: string, contentId: string, choice: AiChoice
     const detail = providerError
       ? [providerError.httpStatus ? `HTTP ${providerError.httpStatus}` : null, providerError.detail]
           .filter(Boolean)
-          .join(" — ")
+          .join(" | ")
       : error instanceof Error
         ? error.name
         : "unknown";

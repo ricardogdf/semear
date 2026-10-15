@@ -37,7 +37,7 @@ const errorLabels: Record<string, string> = {
 export const AI_SETTINGS_QUERY_KEY = ["ai-settings"] as const;
 
 function formatDate(value: string | null) {
-  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+  return value ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Nunca";
 }
 
 function ProviderCard({ provider, disabled }: { provider: AiProviderSettings; disabled: boolean }) {
@@ -291,7 +291,7 @@ export function AiSettingsScreen() {
         </h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
           Conecte sua própria chave de API para processar suas aulas. A integração usa a <strong>API</strong> de cada
-          provedor, com cobrança na sua conta de API — assinaturas dos aplicativos de chat não incluem, necessariamente,
+          provedor, com cobrança na sua conta de API. Assinaturas dos aplicativos de chat não incluem, necessariamente,
           créditos de API. Suas chaves não são compartilhadas com outros usuários.
         </p>
       </header>

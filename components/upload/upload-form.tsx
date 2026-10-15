@@ -216,7 +216,7 @@ export function UploadForm({ subjectOptions }: UploadFormProps) {
 
         {isProcessing ? (
           <p role="status" className="text-sm text-muted-foreground">
-            Analisando a aula com {selection.model}. Isso pode levar até alguns minutos — mantenha esta página aberta.
+            Analisando a aula com {selection.model}. Isso pode levar até alguns minutos; mantenha esta página aberta.
           </p>
         ) : null}
 

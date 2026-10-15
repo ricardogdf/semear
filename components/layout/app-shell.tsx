@@ -37,7 +37,7 @@ function Brand({ collapsed }: { collapsed?: boolean }) {
     <Link
       href="/dashboard"
       className="flex items-center gap-2.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      aria-label="Semear — ir para o dashboard"
+      aria-label="Semear, ir para o dashboard"
     >
       <LogoMark />
       <span className={cn("font-[var(--font-heading)] text-lg font-semibold tracking-tight", collapsed && "sr-only")}>
@@ -142,7 +142,7 @@ export function AppShell({ user, initialCollapsed, children }: AppShellProps) {
         Pular para o conteúdo
       </a>
 
-      {/* Menu lateral — desktop e tablet */}
+      {/* Menu lateral para desktop e tablet */}
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border/60 bg-card/80 backdrop-blur-xl transition-[width] duration-200 ease-out md:flex",
@@ -175,7 +175,7 @@ export function AppShell({ user, initialCollapsed, children }: AppShellProps) {
         </div>
       </aside>
 
-      {/* Barra superior + drawer — celulares */}
+      {/* Barra superior e drawer para celulares */}
       <Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/60 bg-card/90 px-4 backdrop-blur-xl md:hidden">
           <Dialog.Trigger

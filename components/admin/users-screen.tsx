@@ -191,7 +191,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
         <Alert tone="danger" title="Não foi possível carregar os usuários">{usersQuery.error.message}</Alert>
       ) : (
         <>
-          {/* Cartões — telas pequenas */}
+          {/* Cartões para telas pequenas */}
           <ul className="grid gap-3 lg:hidden">
             {users.map((user) => (
               <li key={user.id} className="rounded-3xl border border-border/60 bg-card p-4">
@@ -208,7 +208,7 @@ export function UsersScreen({ currentUserId }: { currentUserId: string }) {
             ))}
           </ul>
 
-          {/* Tabela — telas largas */}
+          {/* Tabela para telas largas */}
           <div className="hidden rounded-[2rem] border border-border/60 bg-card p-2 lg:block">
             <Table>
               <TableHeader>

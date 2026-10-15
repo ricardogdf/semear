@@ -31,7 +31,7 @@ export function PublicFooter() {
   return (
     <footer className="border-t border-border/60">
       <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>Semear — plataforma de estudos gratuita e de acesso restrito.</p>
+        <p>Semear, plataforma de estudos gratuita e de acesso restrito.</p>
         <div className="flex gap-4">
           <Link href="/login" className="hover:text-foreground">Entrar</Link>
           <Link href="/first-access" className="hover:text-foreground">Primeiro acesso</Link>

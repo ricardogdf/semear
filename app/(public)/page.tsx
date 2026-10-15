@@ -46,7 +46,7 @@ const features = [
     icon: ListChecks,
     title: "Questões com fundamento",
     description:
-      "Cada questão gerada precisa citar um trecho da aula. Questões sem respaldo no texto são descartadas — nada de perguntas inventadas.",
+      "Cada questão gerada precisa citar um trecho da aula. Questões sem respaldo no texto são descartadas, sem perguntas inventadas.",
   },
   {
     icon: ScanSearch,
@@ -119,11 +119,11 @@ export default async function LandingPage() {
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Exemplo de análise</p>
             <ul className="mt-5 grid gap-3 text-sm">
               <li className="rounded-2xl border border-success/30 bg-success/10 p-4">
-                <p className="font-semibold">Aula 3 — Fotossíntese</p>
+                <p className="font-semibold">Aula 3: Fotossíntese</p>
                 <p className="mt-1 text-muted-foreground">Conteúdo didático identificado · 8 questões geradas</p>
               </li>
               <li className="rounded-2xl border border-border bg-secondary/40 p-4">
-                <p className="font-semibold">Aula 1 — Apresentação da disciplina</p>
+                <p className="font-semibold">Aula 1: Apresentação da disciplina</p>
                 <p className="mt-1 text-muted-foreground">Aula introdutória: geração de questões não necessária</p>
               </li>
               <li className="rounded-2xl border border-warning/40 bg-warning/10 p-4">

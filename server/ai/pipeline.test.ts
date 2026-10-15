@@ -49,7 +49,7 @@ const validQuestion = {
   sourceExcerpt: "Ela ocorre nos cloroplastos, organelas que contêm clorofila",
 };
 
-describe("processLesson — classificação antes da geração de questões", () => {
+describe("processLesson: classificação antes da geração de questões", () => {
   it("aula com conteúdo didático: gera questões fundamentadas", async () => {
     const { client, calls } = fakeClient({
       lesson_classification: {

@@ -16,7 +16,7 @@ const publicPages = ["/", "/login", "/first-access"];
 const privatePages = ["/dashboard", "/subjects", "/simulations", "/settings/ai", "/settings/account", "/admin/users", "/admin/access-requests"];
 
 for (const viewport of viewports) {
-  test.describe(`responsividade — ${viewport.name}`, () => {
+  test.describe(`responsividade: ${viewport.name}`, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
     test("páginas públicas", async ({ page }) => {

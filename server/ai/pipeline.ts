@@ -51,7 +51,7 @@ const UNTRUSTED_CONTENT_RULE =
 const CLASSIFICATION_SYSTEM = `Você é um avaliador pedagógico. Analise o texto extraído de uma aula e decida se ele contém conteúdo didático substantivo suficiente para gerar questões de múltipla escolha sobre o assunto ensinado.
 
 Categorias (campo "classification"):
-- SUBSTANTIVE: o texto ensina — explica conceitos, teorias, fatos, procedimentos, exemplos, demonstrações ou argumentos de uma disciplina, com densidade suficiente para avaliar o aprendizado. Aulas mistas (parte introdutória + parte didática) também são SUBSTANTIVE.
+- SUBSTANTIVE: o texto ensina, ou seja, explica conceitos, teorias, fatos, procedimentos, exemplos, demonstrações ou argumentos de uma disciplina, com densidade suficiente para avaliar o aprendizado. Aulas mistas (parte introdutória + parte didática) também são SUBSTANTIVE.
 - INTRODUCTORY: apresentação do curso ou do professor, boas-vindas, visão geral, objetivos gerais, ementa, metodologia de ensino ou lista de tópicos que "serão vistos", sem explicar o conteúdo em si.
 - ADMINISTRATIVE: cronogramas, datas, critérios e regras de avaliação, avisos, instruções operacionais, bibliografia ou logística, sem conteúdo da disciplina.
 - INSUFFICIENT: texto curto demais, fragmentado, ilegível (extração ruim), ambíguo, ou que não pode ser classificado com segurança.
@@ -66,7 +66,7 @@ Regras:
 - "reason": justificativa objetiva em português do Brasil, em até 2 frases.
 ${UNTRUSTED_CONTENT_RULE}`;
 
-const STUDY_MATERIAL_SYSTEM = `Você é um assistente acadêmico. Responda sempre em português do Brasil, baseando-se exclusivamente no material fornecido — não acrescente fatos que não estejam nele.
+const STUDY_MATERIAL_SYSTEM = `Você é um assistente acadêmico. Responda sempre em português do Brasil, baseando-se exclusivamente no material fornecido. Não acrescente fatos que não estejam nele.
 - "summary": resumo de estudo em Markdown (título com #, seções com ## e ###, listas, **negrito** em termos-chave). Para aulas introdutórias ou administrativas, resuma objetivamente as informações apresentadas (objetivos, organização, datas, critérios).
 - "shortSummary": no máximo 2 frases, texto simples, sem Markdown.
 - "keywords": de 5 a 10 termos importantes que aparecem no material.
@@ -150,7 +150,7 @@ export function validateGeneratedQuestions(
 /**
  * Processa uma aula: classifica o conteúdo, gera material de estudo e, apenas para conteúdo
  * didático, gera questões fundamentadas no texto. Falhas do provedor ou de formato lançam
- * AiProviderError — nunca são convertidas em "aula sem conteúdo".
+ * AiProviderError; nunca são convertidas em "aula sem conteúdo".
  */
 export async function processLesson(
   client: AiProviderClient,
