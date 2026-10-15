@@ -1,5 +1,3 @@
-import { PDFParse } from "pdf-parse";
-
 import { DomainError } from "@/server/db";
 
 // A Vercel limita o corpo das requisições a 4,5 MB; 4 MB deixa margem para o restante do formulário.
@@ -21,7 +19,12 @@ async function extractPdf(bytes: Uint8Array) {
     throw new DomainError("VALIDATION", "O arquivo não é um PDF válido.");
   }
 
-  const parser = new PDFParse({ data: bytes });
+  // Carregado só para PDFs: o pdfjs exige DOMMatrix já na importação, e o worker do pdf-parse
+  // define esses globais via @napi-rs/canvas (importado estaticamente, então entra no bundle da Vercel).
+  const { CanvasFactory } = await import("pdf-parse/worker");
+  const { PDFParse } = await import("pdf-parse");
+
+  const parser = new PDFParse({ data: bytes, CanvasFactory });
   try {
     const result = await parser.getText();
     return result.text.replace(PAGE_MARKER, "").replace(/\n{3,}/g, "\n\n").trim();
