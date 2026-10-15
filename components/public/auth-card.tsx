@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BrainCircuit } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo-mark";
 
 export function AuthCard({
   title,
@@ -18,9 +18,7 @@ export function AuthCard({
         href="/"
         className="mb-6 flex items-center gap-2.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <BrainCircuit className="h-5 w-5" aria-hidden />
-        </span>
+        <LogoMark className="h-10 w-10" />
         <span className="font-[var(--font-heading)] text-xl font-semibold tracking-tight">Semear</span>
       </Link>
       <main className="w-full max-w-md rounded-[2rem] border border-border/60 bg-card p-6 shadow-sm sm:p-8">

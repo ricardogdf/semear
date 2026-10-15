@@ -4,8 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import { BrainCircuit, LoaderCircle, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LoaderCircle, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
+import { LogoMark } from "@/components/brand/logo-mark";
 import { Badge, SheetContent } from "@/components/ui";
 import { cn, type CurrentUser } from "@/lib/utils";
 
@@ -38,9 +39,7 @@ function Brand({ collapsed }: { collapsed?: boolean }) {
       className="flex items-center gap-2.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label="Semear — ir para o dashboard"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-        <BrainCircuit className="h-5 w-5" aria-hidden />
-      </span>
+      <LogoMark />
       <span className={cn("font-[var(--font-heading)] text-lg font-semibold tracking-tight", collapsed && "sr-only")}>
         Semear
       </span>
