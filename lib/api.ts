@@ -9,6 +9,7 @@ import type {
   SimulationSubjectSnapshot,
   SimulationSubmissionResult,
   SubjectDetailSnapshot,
+  SubjectOption,
   SubjectScoreSnapshot,
   UserRoleValue,
 } from "@/lib/utils";
@@ -96,7 +97,7 @@ export const getDashboard = () => request<DashboardOverview>("/api/dashboard");
 export const getSubjects = (status?: string) =>
   request<SubjectScoreSnapshot[]>(`/api/subjects${status ? `?status=${encodeURIComponent(status)}` : ""}`);
 
-export const getSubjectOptions = () => request<Array<{ id: string; title: string }>>("/api/subjects?compact=1");
+export const getSubjectOptions = () => request<SubjectOption[]>("/api/subjects?compact=1");
 
 export const getSubjectDetails = (subjectId: string) =>
   request<SubjectDetailSnapshot>(`/api/subjects/${encodeURIComponent(subjectId)}`);
@@ -107,6 +108,20 @@ export const updateSubject = (subjectId: string, body: Record<string, unknown>) 
 export const deleteSubject = (subjectId: string) =>
   request<{ ok: true }>(`/api/subjects/${encodeURIComponent(subjectId)}`, json("DELETE"));
 
+interface ModuleRecord {
+  id: string;
+  title: string;
+}
+
+export const createModule = (subjectId: string, title: string) =>
+  request<ModuleRecord>(`/api/subjects/${encodeURIComponent(subjectId)}/modules`, json("POST", { title }));
+
+export const renameModule = (moduleId: string, title: string) =>
+  request<ModuleRecord>(`/api/modules/${encodeURIComponent(moduleId)}`, json("PATCH", { title }));
+
+export const deleteModule = (moduleId: string) =>
+  request<{ ok: true }>(`/api/modules/${encodeURIComponent(moduleId)}`, json("DELETE"));
+
 export const uploadContent = (formData: FormData) =>
   request<ContentDetailSnapshot>("/api/content/upload", { method: "POST", body: formData });
 
@@ -115,6 +130,10 @@ export const reprocessContent = (contentId: string, body: { provider?: AiProvide
 
 export const deleteContent = (contentId: string) =>
   request<{ ok: true }>(`/api/content/${encodeURIComponent(contentId)}`, json("DELETE"));
+
+/** Move a aula para um módulo da matéria; `null` deixa a aula direto na matéria. */
+export const moveContentToModule = (contentId: string, moduleId: string | null) =>
+  request<ContentDetailSnapshot>(`/api/content/${encodeURIComponent(contentId)}`, json("PATCH", { moduleId }));
 
 interface ProcessingRun {
   id: string;

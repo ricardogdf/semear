@@ -5,6 +5,7 @@ export * from "./users";
 export * from "./access-requests";
 export * from "./ai-credentials";
 export * from "./subjects";
+export { createModule, deleteModule, renameModule } from "./modules";
 export * from "./contents";
 export * from "./simulations";
 export { getDashboardOverview } from "./dashboard";

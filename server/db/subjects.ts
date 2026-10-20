@@ -3,21 +3,25 @@ import { Prisma, type Simulation, type SimulationResult, type SubjectStatus } fr
 import {
   calculateAverageScore,
   calculateFinalScore,
+  compareTitles,
   normalizeScore,
   type SimulationSubjectSnapshot,
   type SubjectDetailSnapshot,
+  type SubjectOption,
   type SubjectScoreSnapshot,
 } from "@/lib/utils";
 
 import { prisma } from "./client";
 import { DomainError } from "./errors";
 import {
+  contentRelationsInclude,
   contentSummarySelect,
   mapContentDetail,
   mapContentSummaryRow,
   mapSimulationResult,
   toQuestionArray,
 } from "./mappers";
+import { buildModuleSnapshots } from "./modules";
 
 type SimulationWithResults = Simulation & { results: SimulationResult[] };
 
@@ -41,12 +45,14 @@ const simulationsWithOwnResults = (userId: string) =>
     orderBy: { createdAt: "desc" },
   }) satisfies Prisma.Subject$simulationsArgs;
 
+const moduleListSelect = { select: { id: true, title: true } } satisfies Prisma.Subject$modulesArgs;
+
 export async function getSubjectsOverview(userId: string, status?: SubjectStatus): Promise<SubjectScoreSnapshot[]> {
   const subjects = await prisma.subject.findMany({
     where: { userId, ...(status ? { status } : {}) },
     include: {
       simulations: simulationsWithOwnResults(userId),
-      _count: { select: { contents: true } },
+      _count: { select: { contents: true, modules: true } },
     },
     orderBy: { title: "asc" },
   });
@@ -60,16 +66,22 @@ export async function getSubjectsOverview(userId: string, status?: SubjectStatus
     averageScore: calculateAverageScore(allNormalizedScores(subject.simulations)),
     difficulty: subject.difficulty,
     contentCount: subject._count.contents,
+    moduleCount: subject._count.modules,
     attemptCount: subject.simulations.reduce((total, simulation) => total + simulation.results.length, 0),
   }));
 }
 
-export async function getSubjectOptions(userId: string) {
-  return prisma.subject.findMany({
+export async function getSubjectOptions(userId: string): Promise<SubjectOption[]> {
+  const subjects = await prisma.subject.findMany({
     where: { userId },
-    select: { id: true, title: true },
+    select: { id: true, title: true, modules: moduleListSelect },
     orderBy: { title: "asc" },
   });
+
+  return subjects.map((subject) => ({
+    ...subject,
+    modules: [...subject.modules].sort((left, right) => compareTitles(left.title, right.title)),
+  }));
 }
 
 /** Detalhe da matéria para a área de estudo (conteúdo completo; somente do dono). */
@@ -77,7 +89,8 @@ export async function getSubjectDetail(userId: string, subjectId: string): Promi
   const subject = await prisma.subject.findFirst({
     where: { id: subjectId, userId },
     include: {
-      contents: { orderBy: { createdAt: "desc" }, include: { subject: { select: { id: true, title: true } } } },
+      modules: moduleListSelect,
+      contents: { orderBy: { createdAt: "desc" }, include: contentRelationsInclude },
       simulations: simulationsWithOwnResults(userId),
     },
   });
@@ -95,6 +108,7 @@ export async function getSubjectDetail(userId: string, subjectId: string): Promi
     progress: subject.progress,
     difficulty: subject.difficulty,
     finalScore: calculateFinalScore(latestNormalizedScores(subject.simulations)),
+    modules: buildModuleSnapshots(subject.modules, subject.contents),
     contents: subject.contents.map(mapContentDetail),
     history: subject.simulations
       .flatMap((simulation) => simulation.results.map((result) => mapSimulationResult(result, simulation)))

@@ -1,4 +1,4 @@
-import type { Content, Prisma, Simulation, SimulationResult, Subject } from "@prisma/client";
+import type { Content, Prisma, Simulation, SimulationResult, Subject, SubjectModule } from "@prisma/client";
 
 import {
   normalizeScore,
@@ -55,14 +55,25 @@ export function mapSimulationResult(
   };
 }
 
-type ContentWithSubject = Content & { subject: Pick<Subject, "id" | "title"> };
+/** Relações necessárias para mapear uma aula (matéria e módulo). */
+export const contentRelationsInclude = {
+  subject: { select: { id: true, title: true } },
+  module: { select: { title: true } },
+} satisfies Prisma.ContentInclude;
 
-function mapContentSummary(content: ContentWithSubject): ContentSummarySnapshot {
+type ContentWithRelations = Content & {
+  subject: Pick<Subject, "id" | "title">;
+  module: Pick<SubjectModule, "title"> | null;
+};
+
+function mapContentSummary(content: ContentWithRelations): ContentSummarySnapshot {
   return {
     id: content.id,
     title: content.title,
     subjectId: content.subject.id,
     subjectTitle: content.subject.title,
+    moduleId: content.moduleId,
+    moduleTitle: content.module?.title ?? null,
     source: content.source,
     createdAt: content.createdAt.toISOString(),
     shortSummary: content.shortSummary,
@@ -78,7 +89,7 @@ function mapContentSummary(content: ContentWithSubject): ContentSummarySnapshot 
   };
 }
 
-export function mapContentDetail(content: ContentWithSubject): ContentDetailSnapshot {
+export function mapContentDetail(content: ContentWithRelations): ContentDetailSnapshot {
   return {
     ...mapContentSummary(content),
     originalFileName: content.originalFileName,
@@ -107,11 +118,13 @@ export const contentSummarySelect = {
   inputTruncated: true,
   errorMessage: true,
   createdAt: true,
+  moduleId: true,
   subject: { select: { id: true, title: true } },
+  module: { select: { title: true } },
 } satisfies Prisma.ContentSelect;
 
 type ContentSummaryRow = Prisma.ContentGetPayload<{ select: typeof contentSummarySelect }>;
 
 export function mapContentSummaryRow(content: ContentSummaryRow): ContentSummarySnapshot {
-  return mapContentSummary(content as unknown as ContentWithSubject);
+  return mapContentSummary(content as unknown as ContentWithRelations);
 }

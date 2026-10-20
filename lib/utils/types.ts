@@ -63,6 +63,9 @@ export interface ContentSummarySnapshot {
   title: string;
   subjectId: string;
   subjectTitle: string;
+  /** Módulo da matéria ao qual a aula pertence (null: sem módulo). */
+  moduleId: string | null;
+  moduleTitle: string | null;
   source: "TXT" | "PDF";
   createdAt: string;
   shortSummary: string;
@@ -98,7 +101,24 @@ export interface SubjectScoreSnapshot {
   averageScore: number;
   difficulty: number;
   contentCount: number;
+  moduleCount: number;
   attemptCount: number;
+}
+
+/** Módulo de uma matéria. */
+export interface ModuleSnapshot {
+  id: string;
+  title: string;
+  contentCount: number;
+  /** Questões das aulas processadas do módulo. */
+  availableQuestionCount: number;
+}
+
+/** Matéria para os campos de escolha (envio de aula), com os módulos dela. */
+export interface SubjectOption {
+  id: string;
+  title: string;
+  modules: Array<{ id: string; title: string }>;
 }
 
 export interface SimulationResultSnapshot {
@@ -154,6 +174,7 @@ export interface SubjectDetailSnapshot {
   progress: number;
   difficulty: number;
   finalScore: number;
+  modules: ModuleSnapshot[];
   contents: ContentDetailSnapshot[];
   history: SimulationResultSnapshot[];
 }

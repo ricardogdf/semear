@@ -7,7 +7,8 @@ import type { ContentDetailSnapshot } from "@/lib/utils";
 import { getProviderClient, recordCredentialError, resolveAiSelection } from "./ai-credentials";
 import { prisma } from "./client";
 import { DomainError } from "./errors";
-import { mapContentDetail } from "./mappers";
+import { contentRelationsInclude, mapContentDetail } from "./mappers";
+import { findOrCreateModule } from "./modules";
 import { consumeRateLimit } from "./rate-limit";
 
 const UPLOADS_PER_HOUR = 30;
@@ -49,7 +50,7 @@ async function findOrCreateSubject(tx: Prisma.TransactionClient, userId: string,
 async function loadOwnedContent(userId: string, contentId: string) {
   const content = await prisma.content.findFirst({
     where: { id: contentId, subject: { userId } },
-    include: { subject: { select: { id: true, title: true } } },
+    include: contentRelationsInclude,
   });
   if (!content) {
     throw new DomainError("NOT_FOUND", "Aula não encontrada.");
@@ -151,7 +152,14 @@ async function runProcessing(userId: string, contentId: string, choice: AiChoice
  */
 export async function createAndProcessContent(
   userId: string,
-  input: { subjectRef: string; body: string; originalFileName: string; source: "TXT" | "PDF" } & AiChoice,
+  input: {
+    subjectRef: string;
+    /** Nome do módulo da matéria (existente ou novo). Ausente: aula sem módulo. */
+    moduleRef?: string;
+    body: string;
+    originalFileName: string;
+    source: "TXT" | "PDF";
+  } & AiChoice,
 ): Promise<ContentDetailSnapshot> {
   if (!input.body.trim()) {
     throw new DomainError("VALIDATION", "Não foi possível extrair texto do arquivo.");
@@ -167,6 +175,8 @@ export async function createAndProcessContent(
 
   const content = await prisma.$transaction(async (tx) => {
     const subject = await findOrCreateSubject(tx, userId, input.subjectRef);
+    const moduleTitle = input.moduleRef?.trim();
+    const moduleRow = moduleTitle ? await findOrCreateModule(tx, subject.id, moduleTitle) : null;
     const created = await tx.content.create({
       data: {
         title: input.originalFileName.replace(/\.[^.]+$/, "").trim() || "Aula sem título",
@@ -175,6 +185,7 @@ export async function createAndProcessContent(
         body: input.body,
         processingStatus: "PROCESSING",
         subjectId: subject.id,
+        moduleId: moduleRow?.id ?? null,
       },
     });
     await tx.subject.update({ where: { id: subject.id }, data: { updatedAt: new Date() } });
@@ -203,6 +214,29 @@ export async function reprocessContent(userId: string, contentId: string, choice
   );
 
   return runProcessing(userId, content.id, choice);
+}
+
+/** Move a aula para um módulo da mesma matéria (ou a deixa sem módulo, com `null`). */
+export async function moveContentToModule(userId: string, contentId: string, moduleId: string | null) {
+  const content = await loadOwnedContent(userId, contentId);
+
+  if (moduleId !== null) {
+    const target = await prisma.subjectModule.findFirst({
+      where: { id: moduleId, subjectId: content.subjectId },
+      select: { id: true },
+    });
+    if (!target) {
+      throw new DomainError("NOT_FOUND", "Módulo não encontrado nesta matéria.");
+    }
+  }
+
+  await prisma.content.update({
+    where: { id: content.id },
+    // Mantém o updatedAt: ele marca quando um processamento começou (detecção de processamento travado).
+    data: { moduleId, updatedAt: content.updatedAt },
+  });
+
+  return mapContentDetail(await loadOwnedContent(userId, contentId));
 }
 
 export async function getContentProcessingHistory(userId: string, contentId: string) {

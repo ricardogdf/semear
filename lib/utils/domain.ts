@@ -64,6 +64,11 @@ export function formatMinutes(totalSeconds: number) {
   return `${minutes}:${seconds}`;
 }
 
+/** Ordem natural de nomes ("Módulo 2" antes de "Módulo 10"), sem diferenciar maiúsculas e acentos. */
+export function compareTitles(left: string, right: string) {
+  return left.localeCompare(right, "pt-BR", { numeric: true, sensitivity: "base" });
+}
+
 /** Variação percentual entre duas notas. Retorna null quando não há base de comparação. */
 export function calculateImprovement(previous: number, current: number) {
   if (previous <= 0) {
