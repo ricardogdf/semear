@@ -118,7 +118,10 @@ export function DashboardScreen({ userName }: { userName: string }) {
                 >
                   <div>
                     <p className="line-clamp-2 text-sm font-medium">{content.title}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{content.subjectTitle}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {content.subjectTitle}
+                      {content.moduleTitle ? ` · ${content.moduleTitle}` : ""}
+                    </p>
                   </div>
                   <ProcessingStatusBadge content={content} className="self-start" />
                   {content.shortSummary ? (

@@ -69,6 +69,28 @@ export function compareTitles(left: string, right: string) {
   return left.localeCompare(right, "pt-BR", { numeric: true, sensitivity: "base" });
 }
 
+/** Rótulo das aulas que não estão em nenhum módulo (ficam direto na matéria). */
+export const NO_MODULE_LABEL = "Sem módulo";
+
+/** Agrupa as aulas pelos módulos (na ordem recebida) e, por último, as que ficam direto na matéria. */
+export function groupContentsByModule<T extends { moduleId: string | null }>(
+  modules: Array<{ id: string; title: string }>,
+  contents: T[],
+) {
+  const known = new Set(modules.map((entry) => entry.id));
+  const groups = modules.map((entry) => ({
+    moduleId: entry.id as string | null,
+    title: entry.title,
+    contents: contents.filter((content) => content.moduleId === entry.id),
+  }));
+  groups.push({
+    moduleId: null,
+    title: NO_MODULE_LABEL,
+    contents: contents.filter((content) => !content.moduleId || !known.has(content.moduleId)),
+  });
+  return groups.filter((group) => group.contents.length > 0);
+}
+
 /**
  * Módulo com o menor desempenho, para indicar onde treinar. Só compara módulos que já têm
  * questões respondidas (pelo menos dois) e não aponta nenhum se o menor já estiver com nota máxima.

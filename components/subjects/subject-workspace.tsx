@@ -13,6 +13,7 @@ import {
   FileText,
   History,
   Key,
+  Layers,
   LoaderCircle,
   Pencil,
   RefreshCw,
@@ -40,8 +41,10 @@ import {
   cn,
   formatStatusLabel,
   getStatusVariant,
+  groupContentsByModule,
   subjectStatusValues,
   type ContentDetailSnapshot,
+  type ModuleSnapshot,
   type SubjectDetailSnapshot,
   type SubjectStatusValue,
 } from "@/lib/utils";
@@ -54,11 +57,14 @@ import {
   deleteSubject,
   getProcessingRuns,
   getSubjectDetails,
+  moveContentToModule,
   reprocessContent,
   updateSubject,
 } from "@/lib/api";
 
 import { ContentPractice } from "./content-practice";
+import { ModuleFormModal, useRefreshSubject } from "./module-dialogs";
+import { ModulesSection } from "./modules-section";
 
 function ProcessingHistory({ contentId }: { contentId: string }) {
   const query = useQuery({ queryKey: ["processing-runs", contentId], queryFn: () => getProcessingRuns(contentId) });
@@ -82,7 +88,86 @@ function ProcessingHistory({ contentId }: { contentId: string }) {
   );
 }
 
-function ContentPanel({ content, subjectId }: { content: ContentDetailSnapshot; subjectId: string }) {
+const NEW_MODULE_OPTION = "__novo__";
+
+/** Escolhe o módulo da aula: um existente, um novo ou nenhum (direto na matéria). */
+function ModulePicker({
+  content,
+  subjectId,
+  modules,
+}: {
+  content: ContentDetailSnapshot;
+  subjectId: string;
+  modules: ModuleSnapshot[];
+}) {
+  const queryClient = useQueryClient();
+  const refresh = useRefreshSubject(subjectId);
+  const { notify } = useToast();
+  const [createOpen, setCreateOpen] = React.useState(false);
+
+  const move = useMutation({
+    mutationFn: (moduleId: string | null) => moveContentToModule(content.id, moduleId),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SubjectDetailSnapshot>(["subject", subjectId], (current) =>
+        current
+          ? { ...current, contents: current.contents.map((entry) => (entry.id === updated.id ? updated : entry)) }
+          : current,
+      );
+      refresh();
+      notify(
+        "success",
+        updated.moduleTitle ? `Aula movida para o módulo "${updated.moduleTitle}".` : "Aula movida para fora dos módulos.",
+      );
+    },
+    onError: (error) => notify("error", error.message),
+  });
+
+  const selectId = `module-${content.id}`;
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <Label htmlFor={selectId} className="shrink-0">
+        Módulo
+      </Label>
+      <div className="flex items-center gap-2 sm:w-80">
+        <Select
+          id={selectId}
+          value={content.moduleId ?? ""}
+          disabled={move.isPending}
+          onChange={(event) => {
+            if (event.target.value === NEW_MODULE_OPTION) setCreateOpen(true);
+            else move.mutate(event.target.value || null);
+          }}
+        >
+          <option value="">Sem módulo (direto na matéria)</option>
+          {modules.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.title}
+            </option>
+          ))}
+          <option value={NEW_MODULE_OPTION}>+ Criar novo módulo…</option>
+        </Select>
+        {move.isPending ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-label="Movendo a aula" /> : null}
+      </div>
+      <ModuleFormModal
+        subjectId={subjectId}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        description={`A aula “${content.title}” será movida para o novo módulo.`}
+        onSaved={(created) => move.mutate(created.id)}
+      />
+    </div>
+  );
+}
+
+function ContentPanel({
+  content,
+  subjectId,
+  modules,
+}: {
+  content: ContentDetailSnapshot;
+  subjectId: string;
+  modules: ModuleSnapshot[];
+}) {
   const queryClient = useQueryClient();
   const { notify } = useToast();
   const [reprocessOpen, setReprocessOpen] = React.useState(false);
@@ -147,6 +232,7 @@ function ContentPanel({ content, subjectId }: { content: ContentDetailSnapshot; 
         </div>
       </div>
 
+      <ModulePicker key={`module-picker-${content.id}`} content={content} subjectId={subjectId} modules={modules} />
       <ProcessingDetails content={content} />
       {historyOpen ? (
         <div className="rounded-2xl border border-border/60 p-4">
@@ -386,7 +472,9 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
   });
 
   const subject = query.data;
-  const activeContent = subject?.contents.find((content) => content.id === activeContentId) ?? subject?.contents[0];
+  const groups = subject ? groupContentsByModule(subject.modules, subject.contents) : [];
+  const activeContent =
+    subject?.contents.find((content) => content.id === activeContentId) ?? groups[0]?.contents[0];
 
   if (query.isLoading) {
     return (
@@ -441,6 +529,8 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
         </div>
       </header>
 
+      <ModulesSection subjectId={subject.id} modules={subject.modules} />
+
       {subject.contents.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-border/60 p-10 text-center text-sm text-muted-foreground">
           Nenhuma aula enviada. Use o formulário do{" "}
@@ -453,33 +543,45 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
             <h2 id="lessons-title" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Aulas ({subject.contents.length})
             </h2>
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-              {subject.contents.map((content) => (
-                <li key={content.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveContentId(content.id);
-                      if (window.matchMedia("(max-width: 1023px)").matches) {
-                        panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }
-                    }}
-                    aria-current={activeContent?.id === content.id ? "true" : undefined}
-                    className={cn(
-                      "flex w-full flex-col gap-2 rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      activeContent?.id === content.id ? "border-primary/50 bg-primary/10" : "border-border/40 bg-card hover:bg-secondary/40",
-                    )}
-                  >
-                    <span className="line-clamp-2 text-sm font-medium">{content.title}</span>
-                    <ProcessingStatusBadge content={content} className="self-start text-[11px]" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            {groups.map((group) => (
+              <div key={group.moduleId ?? "sem-modulo"} className="space-y-2">
+                {subject.modules.length > 0 ? (
+                  <h3 className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-muted-foreground">
+                    <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span className="min-w-0 break-words">
+                      {group.title} ({group.contents.length})
+                    </span>
+                  </h3>
+                ) : null}
+                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                  {group.contents.map((content) => (
+                    <li key={content.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveContentId(content.id);
+                          if (window.matchMedia("(max-width: 1023px)").matches) {
+                            panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          }
+                        }}
+                        aria-current={activeContent?.id === content.id ? "true" : undefined}
+                        className={cn(
+                          "flex w-full flex-col gap-2 rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          activeContent?.id === content.id ? "border-primary/50 bg-primary/10" : "border-border/40 bg-card hover:bg-secondary/40",
+                        )}
+                      >
+                        <span className="line-clamp-2 text-sm font-medium">{content.title}</span>
+                        <ProcessingStatusBadge content={content} className="self-start text-[11px]" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </section>
 
           <div ref={panelRef} className="scroll-mt-20 rounded-[2rem] border border-border/50 bg-card p-5 sm:p-6">
-            {activeContent ? <ContentPanel content={activeContent} subjectId={subject.id} /> : null}
+            {activeContent ? <ContentPanel content={activeContent} subjectId={subject.id} modules={subject.modules} /> : null}
           </div>
         </div>
       )}

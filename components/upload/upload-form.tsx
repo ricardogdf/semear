@@ -4,12 +4,12 @@ import * as React from "react";
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, CheckCircle2, FileText, LoaderCircle, Plus, Sparkles, UploadCloud } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, CornerDownRight, FileText, LoaderCircle, Plus, Sparkles, UploadCloud } from "lucide-react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
 import { Alert, Badge, Button, FieldError, Input, Label } from "@/components/ui";
-import { uploadContentSchema, type ContentDetailSnapshot } from "@/lib/utils";
+import { uploadContentSchema, type ContentDetailSnapshot, type SubjectOption } from "@/lib/utils";
 
 import { AiModelPicker, useAiSettings, type AiSelection } from "@/components/ai/ai-model-picker";
 import { ProcessingDetails } from "@/components/ai/processing-status";
@@ -22,8 +22,10 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const ACCEPTED = [".txt", ".pdf"];
 
 interface UploadFormProps {
-  subjectOptions: Array<{ id: string; title: string }>;
+  subjectOptions: SubjectOption[];
 }
+
+const sameTitle = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
 
 export function UploadForm({ subjectOptions }: UploadFormProps) {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -41,20 +43,20 @@ export function UploadForm({ subjectOptions }: UploadFormProps) {
 
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadContentSchema),
-    defaultValues: { subjectId: "" },
+    defaultValues: { subjectId: "", module: "" },
   });
 
   const watchedSubject = form.watch("subjectId");
-  const matchedSubject = subjectOptions.find(
-    (subject) => subject.title.toLowerCase() === watchedSubject.trim().toLowerCase(),
-  );
+  const watchedModule = form.watch("module") ?? "";
+  const matchedSubject = subjectOptions.find((subject) => sameTitle(subject.title, watchedSubject));
+  const matchedModule = matchedSubject?.modules.find((entry) => sameTitle(entry.title, watchedModule));
 
   const mutation = useMutation({
     mutationFn: uploadContent,
     onSuccess: (content) => {
       setLastResult(content);
       setSelectedFile(null);
-      form.reset({ subjectId: "" });
+      form.reset({ subjectId: "", module: "" });
       notify(
         content.processingStatus === "FAILED" ? "error" : "success",
         content.processingStatus === "FAILED"
@@ -97,6 +99,7 @@ export function UploadForm({ subjectOptions }: UploadFormProps) {
     setSelectionError(null);
     const formData = new FormData();
     formData.append("subjectId", values.subjectId.trim());
+    if (values.module?.trim()) formData.append("module", values.module.trim());
     formData.append("file", selectedFile);
     formData.append("provider", selection.provider);
     formData.append("model", selection.model);
@@ -201,6 +204,48 @@ export function UploadForm({ subjectOptions }: UploadFormProps) {
             </p>
           ) : null}
           <FieldError message={errors.subjectId?.message} />
+        </div>
+
+        <div>
+          <Label htmlFor="upload-module">
+            Módulo <span className="font-normal text-muted-foreground">(opcional: existente ou novo)</span>
+          </Label>
+          <Input
+            id="upload-module"
+            list="modules-list"
+            placeholder="Ex.: Multiplicação, Divisão…"
+            disabled={isProcessing}
+            autoComplete="off"
+            className="mt-2"
+            aria-invalid={Boolean(errors.module)}
+            aria-describedby="upload-module-hint"
+            {...form.register("module")}
+          />
+          <datalist id="modules-list">
+            {(matchedSubject?.modules ?? []).map((entry) => (
+              <option key={entry.id} value={entry.title} />
+            ))}
+          </datalist>
+          <p
+            id="upload-module-hint"
+            className={`mt-1.5 flex items-center gap-1 text-xs ${
+              !watchedModule.trim() ? "text-muted-foreground" : matchedModule ? "text-success" : "text-primary"
+            }`}
+          >
+            {!watchedModule.trim() ? (
+              <CornerDownRight className="h-3 w-3" aria-hidden />
+            ) : matchedModule ? (
+              <CheckCircle2 className="h-3 w-3" aria-hidden />
+            ) : (
+              <Plus className="h-3 w-3" aria-hidden />
+            )}
+            {!watchedModule.trim()
+              ? "Em branco, a aula fica direto na matéria."
+              : matchedModule
+                ? "Módulo existente"
+                : "Um novo módulo será criado"}
+          </p>
+          <FieldError message={errors.module?.message} />
         </div>
 
         <div>
