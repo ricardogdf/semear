@@ -1,7 +1,7 @@
 /**
  * Dados de demonstração NÃO destrutivos.
  * - Cria o usuário comum demo@semear.local (sem senha e sem privilégios) se ele não existir.
- * - Só popula matérias desse usuário se ele ainda não tiver nenhuma.
+ * - Só popula matérias desse usuário se ele ainda não tiver nenhuma (uma delas organizada em módulos).
  * - Nunca apaga dados e nunca cria administradores ou credenciais.
  * Para entrar como esse usuário, um administrador gera o código de primeiro acesso na área
  * administrativa (Usuários → Gerar código).
@@ -27,6 +27,8 @@ interface DemoContent {
   classification: "SUBSTANTIVE" | "INTRODUCTORY";
   classificationReason: string;
   questions: Question[];
+  /** Módulo da matéria (opcional; sem ele, a aula fica direto na matéria). */
+  module?: string;
 }
 
 interface DemoSubject {
@@ -46,6 +48,74 @@ const q = (question: string, options: [string, string, string, string], answer: 
 });
 
 const subjects: DemoSubject[] = [
+  {
+    title: "Matemática Básica",
+    instructor: "Prof. Renata Lima",
+    workloadHours: 40,
+    status: "IN_PROGRESS",
+    progress: 30,
+    contents: [
+      {
+        title: "Multiplicação: conceito e propriedades",
+        originalFileName: "multiplicacao.txt",
+        source: "TXT",
+        module: "Multiplicação",
+        body: "A multiplicação é uma adição de parcelas iguais: 3 × 4 significa somar o número 4 três vezes, o que resulta em 12. Os números multiplicados são chamados de fatores e o resultado é chamado de produto. A ordem dos fatores não altera o produto (propriedade comutativa), por isso 3 × 4 e 4 × 3 valem 12. Qualquer número multiplicado por zero resulta em zero.",
+        summary: "# Multiplicação\n\n- É uma **adição de parcelas iguais**: 3 × 4 = 4 + 4 + 4 = 12.\n- **Fatores** são os números multiplicados; o resultado é o **produto**.\n- **Propriedade comutativa**: a ordem dos fatores não altera o produto.\n- Qualquer número multiplicado por **zero** resulta em zero.",
+        shortSummary: "Multiplicação como soma de parcelas iguais, fatores, produto e propriedade comutativa.",
+        importantTopics: "multiplicação, fatores, produto, propriedade comutativa",
+        classification: "SUBSTANTIVE",
+        classificationReason: "Explica o conceito de multiplicação, seus termos e propriedades.",
+        questions: [
+          q(
+            "Como se chama o resultado de uma multiplicação?",
+            ["Produto", "Quociente", "Soma", "Resto"],
+            "Produto",
+            "o resultado é chamado de produto",
+          ),
+          q("Quanto é 3 × 4?", ["12", "7", "34", "1"], "12", "3 × 4 significa somar o número 4 três vezes, o que resulta em 12"),
+          q(
+            "O que diz a propriedade comutativa da multiplicação?",
+            [
+              "A ordem dos fatores não altera o produto",
+              "Todo número multiplicado por zero resulta em um",
+              "O produto é sempre um número par",
+              "Os fatores precisam ser iguais",
+            ],
+            "A ordem dos fatores não altera o produto",
+            "A ordem dos fatores não altera o produto (propriedade comutativa)",
+          ),
+        ],
+      },
+      {
+        title: "Divisão exata e com resto",
+        originalFileName: "divisao.txt",
+        source: "TXT",
+        module: "Divisão",
+        body: "A divisão reparte uma quantidade em partes iguais. Em 12 ÷ 4 = 3, o 12 é o dividendo, o 4 é o divisor e o 3 é o quociente. Quando sobra uma parte que não pode ser repartida, ela é chamada de resto: em 13 ÷ 4, o quociente é 3 e o resto é 1. Não existe divisão por zero.",
+        summary: "# Divisão\n\n- Reparte uma quantidade em **partes iguais**.\n- Em 12 ÷ 4 = 3: **dividendo** 12, **divisor** 4, **quociente** 3.\n- O que sobra é o **resto**: 13 ÷ 4 tem quociente 3 e resto 1.\n- **Não existe divisão por zero.**",
+        shortSummary: "Termos da divisão (dividendo, divisor e quociente), resto e divisão por zero.",
+        importantTopics: "divisão, dividendo, divisor, quociente, resto",
+        classification: "SUBSTANTIVE",
+        classificationReason: "Explica os termos da divisão, o resto e a divisão por zero.",
+        questions: [
+          q(
+            "Em 12 ÷ 4 = 3, qual número é o quociente?",
+            ["3", "12", "4", "1"],
+            "3",
+            "o 12 é o dividendo, o 4 é o divisor e o 3 é o quociente",
+          ),
+          q("Qual é o resto da divisão de 13 por 4?", ["1", "3", "0", "4"], "1", "em 13 ÷ 4, o quociente é 3 e o resto é 1"),
+          q(
+            "O que acontece na divisão por zero?",
+            ["Ela não existe", "O resultado é zero", "O resultado é um", "O resultado é o próprio número"],
+            "Ela não existe",
+            "Não existe divisão por zero",
+          ),
+        ],
+      },
+    ],
+  },
   {
     title: "Didática Contemporânea",
     instructor: "Prof. Helena Farias",
@@ -151,7 +221,7 @@ async function main() {
   }
 
   for (const subject of subjects) {
-    await prisma.subject.create({
+    const created = await prisma.subject.create({
       data: {
         title: subject.title,
         instructor: subject.instructor,
@@ -160,23 +230,32 @@ async function main() {
         progress: subject.progress,
         difficulty: 50,
         userId: user.id,
-        contents: {
-          create: subject.contents.map((content) => ({
-            title: content.title,
-            originalFileName: content.originalFileName,
-            source: content.source,
-            body: content.body,
-            summary: content.summary,
-            shortSummary: content.shortSummary,
-            importantTopics: content.importantTopics,
-            trainingQuestions: content.questions as unknown as Prisma.InputJsonValue,
-            processingStatus: content.classification === "SUBSTANTIVE" ? "COMPLETED" : "NO_QUESTIONS_NEEDED",
-            classification: content.classification,
-            classificationReason: content.classificationReason,
-            processedAt: new Date(),
-          })),
-        },
       },
+    });
+
+    const moduleIds = new Map<string, string>();
+    for (const title of new Set(subject.contents.flatMap((content) => (content.module ? [content.module] : [])))) {
+      const createdModule = await prisma.subjectModule.create({ data: { title, subjectId: created.id } });
+      moduleIds.set(title, createdModule.id);
+    }
+
+    await prisma.content.createMany({
+      data: subject.contents.map((content) => ({
+        title: content.title,
+        originalFileName: content.originalFileName,
+        source: content.source,
+        body: content.body,
+        summary: content.summary,
+        shortSummary: content.shortSummary,
+        importantTopics: content.importantTopics,
+        trainingQuestions: content.questions as unknown as Prisma.InputJsonValue,
+        processingStatus: content.classification === "SUBSTANTIVE" ? "COMPLETED" : "NO_QUESTIONS_NEEDED",
+        classification: content.classification,
+        classificationReason: content.classificationReason,
+        processedAt: new Date(),
+        subjectId: created.id,
+        moduleId: content.module ? moduleIds.get(content.module) : null,
+      })),
     });
   }
 
