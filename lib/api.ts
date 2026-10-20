@@ -27,6 +27,12 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Requisições que saem depois do logout recebem 401; sem esta trava, elas redirecionariam para
+ * /login?next=… no lugar da navegação do próprio logout. A página é recarregada em seguida.
+ */
+let sessionEnding = false;
+
 async function request<T>(input: string, init: RequestInit = {}, options: { redirectOn401?: boolean } = {}): Promise<T> {
   let response: Response;
   try {
@@ -42,7 +48,7 @@ async function request<T>(input: string, init: RequestInit = {}, options: { redi
       fieldErrors?: Record<string, string[]>;
     } | null;
 
-    if (response.status === 401 && options.redirectOn401 !== false && typeof window !== "undefined") {
+    if (response.status === 401 && options.redirectOn401 !== false && !sessionEnding && typeof window !== "undefined") {
       const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
       window.location.assign(`/login?next=${next}`);
     }
@@ -72,7 +78,10 @@ export const login = (body: { email: string; password: string }) =>
 export const completeFirstAccess = (body: { email: string; code: string; password: string; confirmPassword: string }) =>
   request<{ user: CurrentUser }>("/api/auth/first-access", json("POST", body), { redirectOn401: false });
 
-export const logout = () => request<{ ok: true }>("/api/auth/logout", json("POST"), { redirectOn401: false });
+export const logout = () => {
+  sessionEnding = true;
+  return request<{ ok: true }>("/api/auth/logout", json("POST"), { redirectOn401: false });
+};
 
 export const changePassword = (body: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
   request<{ ok: true }>("/api/auth/password", json("POST", body));
