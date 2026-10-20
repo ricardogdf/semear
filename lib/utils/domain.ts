@@ -69,6 +69,19 @@ export function compareTitles(left: string, right: string) {
   return left.localeCompare(right, "pt-BR", { numeric: true, sensitivity: "base" });
 }
 
+/**
+ * Módulo com o menor desempenho, para indicar onde treinar. Só compara módulos que já têm
+ * questões respondidas (pelo menos dois) e não aponta nenhum se o menor já estiver com nota máxima.
+ */
+export function findWeakestModule<T extends { score: number | null }>(modules: T[]) {
+  const evaluated = modules.filter((entry): entry is T & { score: number } => entry.score !== null);
+  if (evaluated.length < 2) {
+    return undefined;
+  }
+  const weakest = evaluated.reduce((lowest, entry) => (entry.score < lowest.score ? entry : lowest));
+  return weakest.score < SCORE_SCALE ? weakest : undefined;
+}
+
 /** Variação percentual entre duas notas. Retorna null quando não há base de comparação. */
 export function calculateImprovement(previous: number, current: number) {
   if (previous <= 0) {

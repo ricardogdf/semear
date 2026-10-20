@@ -1,17 +1,17 @@
 import { Prisma, type ContentProcessingStatus } from "@prisma/client";
 
-import { compareTitles, type ModuleSnapshot } from "@/lib/utils";
+import { compareTitles, normalizeScore, type ModuleSnapshot } from "@/lib/utils";
 
 import { prisma } from "./client";
 import { DomainError } from "./errors";
-import { toQuestionArray } from "./mappers";
+import { toContentStats, toQuestionArray } from "./mappers";
 
 /** Limite por matéria, para que o cadastro de módulos não cresça sem controle. */
 const MAX_MODULES_PER_SUBJECT = 50;
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
-/** Aula com os campos usados nas contagens por módulo. */
+/** Aula com os campos usados nas contagens e no desempenho por módulo. */
 interface ModuleStatsContent {
   id: string;
   moduleId: string | null;
@@ -28,20 +28,42 @@ export function countAvailableQuestions(
     .reduce((total, content) => total + toQuestionArray(content.trainingQuestions).length, 0);
 }
 
-/** Módulos da matéria em ordem de nome, com as contagens de aulas e de questões. */
+/**
+ * Módulos da matéria com contagens e desempenho. Cada questão respondida conta para o módulo
+ * ATUAL da aula de origem, então organizar as aulas em módulos depois reaproveita o histórico.
+ * Questões de aulas excluídas ou sem módulo e de simulados antigos (sem origem) ficam de fora.
+ */
 export function buildModuleSnapshots(
   modules: Array<{ id: string; title: string }>,
   contents: ModuleStatsContent[],
+  results: Array<{ contentStats: Prisma.JsonValue }>,
 ): ModuleSnapshot[] {
+  const moduleOfContent = new Map(contents.map((content) => [content.id, content.moduleId]));
+  const totals = new Map<string, { correct: number; total: number }>();
+
+  for (const result of results) {
+    for (const stat of toContentStats(result.contentStats)) {
+      const moduleId = moduleOfContent.get(stat.contentId);
+      if (!moduleId) continue;
+      const entry = totals.get(moduleId) ?? { correct: 0, total: 0 };
+      entry.correct += stat.correct;
+      entry.total += stat.total;
+      totals.set(moduleId, entry);
+    }
+  }
+
   return [...modules]
     .sort((left, right) => compareTitles(left.title, right.title))
     .map((entry) => {
       const lessons = contents.filter((content) => content.moduleId === entry.id);
+      const stats = totals.get(entry.id);
       return {
         id: entry.id,
         title: entry.title,
         contentCount: lessons.length,
         availableQuestionCount: countAvailableQuestions(lessons),
+        score: stats && stats.total > 0 ? normalizeScore(stats.correct, stats.total) : null,
+        attemptedQuestions: stats?.total ?? 0,
       };
     });
 }

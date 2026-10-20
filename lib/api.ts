@@ -153,8 +153,9 @@ export const getProcessingRuns = (contentId: string) =>
 
 export const getSimulations = () => request<SimulationSubjectSnapshot[]>("/api/simulations");
 
-export const generateSimulation = (subjectId: string) =>
-  request<SimulationSnapshot>("/api/simulations/generate", json("POST", { subjectId }));
+/** Sem `moduleId`, o simulado é da matéria completa. */
+export const generateSimulation = (subjectId: string, moduleId?: string | null) =>
+  request<SimulationSnapshot>("/api/simulations/generate", json("POST", { subjectId, moduleId: moduleId ?? null }));
 
 export const submitSimulation = (
   simulationId: string,

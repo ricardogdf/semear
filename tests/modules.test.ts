@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/server/db";
 
 import { PATCH as patchContent } from "@/app/api/content/[contentId]/route";
+import { GET as dashboard } from "@/app/api/dashboard/route";
 import { DELETE as deleteModule, PATCH as renameModule } from "@/app/api/modules/[moduleId]/route";
+import { POST as submit } from "@/app/api/simulations/[simulationId]/submit/route";
+import { POST as generate } from "@/app/api/simulations/generate/route";
+import { GET as listSimulations } from "@/app/api/simulations/route";
 import { POST as createModule } from "@/app/api/subjects/[subjectId]/modules/route";
 import { DELETE as deleteSubject, GET as getSubject } from "@/app/api/subjects/[subjectId]/route";
 import { GET as listSubjects } from "@/app/api/subjects/route";
@@ -70,6 +74,27 @@ async function subjectDetail(cookie: string, subjectId: string) {
   return (await getSubject(jsonRequest("GET", "/x", { cookie }), params({ subjectId }))).json();
 }
 
+/** Gera e envia um simulado, acertando só as questões em que `isRight` devolve true. */
+async function takeSimulation(
+  cookie: string,
+  subjectId: string,
+  moduleId: string | null,
+  isRight: (text: string) => boolean,
+) {
+  const generated = await generate(post(cookie, { subjectId, moduleId }));
+  expect(generated.status).toBe(201);
+  const simulation = await generated.json();
+  const answers = simulation.questions.map((item: { question: string; options: string[] }, index: number) => ({
+    questionIndex: index,
+    answer: isRight(item.question) ? ANSWERS[item.question]! : item.options.find((option) => option !== ANSWERS[item.question])!,
+  }));
+  const response = await submit(post(cookie, { answers }), params({ simulationId: simulation.id }));
+  expect(response.status).toBe(201);
+  return { simulation, result: await response.json() };
+}
+
+const isDivision = (text: string) => text.includes("÷");
+
 describe("módulos da matéria", () => {
   it("cria, renomeia e lista em ordem de nome; nomes únicos na matéria sem diferenciar maiúsculas", async () => {
     const ana = await seedMath("ana@exemplo.com");
@@ -95,6 +120,8 @@ describe("módulos da matéria", () => {
     expect(detail.modules.find((entry: { title: string }) => entry.title === "Divisão")).toMatchObject({
       contentCount: 1,
       availableQuestionCount: 2,
+      score: null,
+      attemptedQuestions: 0,
     });
     expect(detail.contents.find((content: { id: string }) => content.id === ana.review.id)).toMatchObject({
       moduleId: null,
@@ -130,8 +157,9 @@ describe("módulos da matéria", () => {
     expect((await prisma.content.findUniqueOrThrow({ where: { id: ana.review.id } })).moduleId).toBeNull();
   });
 
-  it("excluir o módulo mantém as aulas na matéria, sem módulo", async () => {
+  it("excluir o módulo mantém as aulas na matéria e o simulado no histórico", async () => {
     const ana = await seedMath("ana@exemplo.com");
+    await takeSimulation(ana.cookie, ana.subject.id, ana.division.id, () => true);
 
     expect((await deleteModule(jsonRequest("DELETE", "/x", { cookie: ana.cookie }), params({ moduleId: ana.division.id }))).status).toBe(200);
     expect((await deleteModule(jsonRequest("DELETE", "/x", { cookie: ana.cookie }), params({ moduleId: ana.division.id }))).status).toBe(404);
@@ -140,15 +168,116 @@ describe("módulos da matéria", () => {
     const detail = await subjectDetail(ana.cookie, ana.subject.id);
     expect(detail.contents).toHaveLength(3);
     expect(detail.modules.map((entry: { title: string }) => entry.title)).toEqual(["Multiplicação"]);
+    expect(detail.history).toHaveLength(1);
+    expect(detail.history[0]).toMatchObject({ moduleId: null, moduleTitle: "Divisão", score: 10 });
   });
 
-  it("excluir a matéria apaga também os módulos e as aulas", async () => {
+  it("excluir a matéria apaga também os módulos, as aulas e os simulados", async () => {
     const ana = await seedMath("ana@exemplo.com");
+    await takeSimulation(ana.cookie, ana.subject.id, ana.division.id, () => true);
 
     const response = await deleteSubject(jsonRequest("DELETE", "/x", { cookie: ana.cookie }), params({ subjectId: ana.subject.id }));
     expect(response.status).toBe(200);
     expect(await prisma.subjectModule.count()).toBe(0);
     expect(await prisma.content.count()).toBe(0);
+    expect(await prisma.simulation.count()).toBe(0);
+  });
+});
+
+describe("simulado por módulo", () => {
+  it("sorteia só as questões das aulas do módulo, sem expor gabarito nem origem", async () => {
+    const ana = await seedMath("ana@exemplo.com");
+
+    const response = await generate(post(ana.cookie, { subjectId: ana.subject.id, moduleId: ana.division.id }));
+    expect(response.status).toBe(201);
+    const simulation = await response.json();
+    expect(simulation).toMatchObject({ moduleId: ana.division.id, moduleTitle: "Divisão", timeLimitMinutes: 4 });
+    expect(simulation.questions.map((item: { question: string }) => item.question).sort()).toEqual([
+      "Quanto é 12 ÷ 4?",
+      "Quanto é 20 ÷ 5?",
+    ]);
+    const serialized = JSON.stringify(simulation);
+    for (const secret of ['"answer"', "sourceExcerpt", "contentId", ana.quotients.id]) {
+      expect(serialized).not.toContain(secret);
+    }
+  });
+
+  it("a matéria completa sorteia de todas as aulas, com ou sem módulo", async () => {
+    const ana = await seedMath("ana@exemplo.com");
+    const simulation = await (await generate(post(ana.cookie, { subjectId: ana.subject.id }))).json();
+    expect(simulation).toMatchObject({ moduleId: null, moduleTitle: null });
+    expect(simulation.questions).toHaveLength(5);
+  });
+
+  it("módulo sem questões é recusado; módulo de outra matéria não é encontrado", async () => {
+    const ana = await seedMath("ana@exemplo.com");
+    const empty = await prisma.subjectModule.create({ data: { title: "Frações", subjectId: ana.subject.id } });
+    const noQuestions = await generate(post(ana.cookie, { subjectId: ana.subject.id, moduleId: empty.id }));
+    expect(noQuestions.status).toBe(412);
+    expect((await noQuestions.json()).message).toMatch(/módulo ainda não tem questões/);
+
+    const physics = await prisma.subject.create({
+      data: { title: "Física", instructor: "X", workloadHours: 10, status: "IN_PROGRESS", progress: 0, difficulty: 50, userId: ana.user.id },
+    });
+    const kinematics = await prisma.subjectModule.create({ data: { title: "Cinemática", subjectId: physics.id } });
+    expect((await generate(post(ana.cookie, { subjectId: ana.subject.id, moduleId: kinematics.id }))).status).toBe(404);
+    expect(await prisma.simulation.count()).toBe(0);
+  });
+});
+
+describe("desempenho por módulo", () => {
+  it("o resultado separa os acertos por módulo e o desempenho aparece na matéria e nos simulados", async () => {
+    const ana = await seedMath("ana@exemplo.com");
+    const { result } = await takeSimulation(ana.cookie, ana.subject.id, null, (text) => !isDivision(text));
+
+    expect(result).toMatchObject({ correctAnswers: 3, totalQuestions: 5, moduleId: null, moduleTitle: null });
+    expect(result.moduleBreakdown).toEqual([
+      { moduleId: ana.division.id, moduleTitle: "Divisão", correct: 0, total: 2 },
+      { moduleId: ana.multiplication.id, moduleTitle: "Multiplicação", correct: 2, total: 2 },
+      { moduleId: null, moduleTitle: null, correct: 1, total: 1 },
+    ]);
+    const tagged = result.breakdown.find((item: { question: string }) => item.question === "Quanto é 12 ÷ 4?");
+    expect(tagged.moduleTitle).toBe("Divisão");
+
+    const detail = await subjectDetail(ana.cookie, ana.subject.id);
+    expect(detail.modules).toEqual([
+      expect.objectContaining({ title: "Divisão", score: 0, attemptedQuestions: 2 }),
+      expect.objectContaining({ title: "Multiplicação", score: 10, attemptedQuestions: 2 }),
+    ]);
+
+    // O simulado só do módulo também conta para o desempenho dele (2 de 4 questões de divisão certas).
+    const { result: moduleResult } = await takeSimulation(ana.cookie, ana.subject.id, ana.division.id, () => true);
+    expect(moduleResult).toMatchObject({ moduleId: ana.division.id, moduleTitle: "Divisão", score: 10 });
+
+    const [listed] = await (await listSimulations(jsonRequest("GET", "/api/simulations", { cookie: ana.cookie }))).json();
+    expect(listed.modules.find((entry: { title: string }) => entry.title === "Divisão")).toMatchObject({
+      score: 5,
+      attemptedQuestions: 4,
+      availableQuestionCount: 2,
+    });
+    expect(listed.history.map((entry: { moduleTitle: string | null }) => entry.moduleTitle)).toEqual(["Divisão", null]);
+  });
+
+  it("organizar as aulas em módulos depois reaproveita o histórico", async () => {
+    const ana = await seedMath("ana@exemplo.com");
+    await takeSimulation(ana.cookie, ana.subject.id, null, (text) => text !== "Quanto é 2 + 2?");
+
+    await patchContent(patch(ana.cookie, { moduleId: ana.multiplication.id }), params({ contentId: ana.review.id }));
+    const detail = await subjectDetail(ana.cookie, ana.subject.id);
+    expect(detail.modules.find((entry: { title: string }) => entry.title === "Multiplicação")).toMatchObject({
+      contentCount: 2,
+      attemptedQuestions: 3,
+      score: 6.7,
+    });
+  });
+
+  it("o dashboard indica o módulo mais fraco da matéria com menor média", async () => {
+    const ana = await seedMath("ana@exemplo.com");
+    await takeSimulation(ana.cookie, ana.subject.id, null, (text) => !isDivision(text));
+
+    const overview = await (await dashboard(jsonRequest("GET", "/api/dashboard", { cookie: ana.cookie }))).json();
+    const focus = overview.insights.find((insight: { id: string }) => insight.id === "focus");
+    expect(focus.description).toContain('O módulo com menor desempenho é "Divisão" (0.0/10)');
   });
 });
 
@@ -166,9 +295,13 @@ describe("isolamento de módulos entre usuários", () => {
     expect((await patchContent(patch(bia.cookie, { moduleId: null }), params({ contentId: ana.quotients.id }))).status).toBe(404);
     expect((await patchContent(patch(bia.cookie, { moduleId: ana.division.id }), params({ contentId: bia.review.id }))).status).toBe(404);
 
+    expect((await generate(post(bia.cookie, { subjectId: bia.subject.id, moduleId: ana.division.id }))).status).toBe(404);
+    expect((await generate(post(bia.cookie, { subjectId: ana.subject.id, moduleId: ana.division.id }))).status).toBe(404);
+
     expect(await prisma.subjectModule.findUniqueOrThrow({ where: { id: ana.division.id } })).toMatchObject({ title: "Divisão" });
     expect((await prisma.content.findUniqueOrThrow({ where: { id: ana.quotients.id } })).moduleId).toBe(ana.division.id);
     expect((await prisma.content.findUniqueOrThrow({ where: { id: bia.review.id } })).moduleId).toBeNull();
     expect(await prisma.subjectModule.count({ where: { subjectId: ana.subject.id } })).toBe(2);
+    expect(await prisma.simulation.count()).toBe(0);
   });
 });

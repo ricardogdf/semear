@@ -19,11 +19,11 @@ import {
   mapContentDetail,
   mapContentSummaryRow,
   mapSimulationResult,
-  toQuestionArray,
 } from "./mappers";
-import { buildModuleSnapshots } from "./modules";
+import { buildModuleSnapshots, countAvailableQuestions } from "./modules";
 
 type SimulationWithResults = Simulation & { results: SimulationResult[] };
+type SimulationWithHistory = SimulationWithResults & { module: { title: string } | null };
 
 /** Notas (0–10) da tentativa mais recente de cada simulado, apenas do próprio usuário. */
 function latestNormalizedScores(simulations: SimulationWithResults[]) {
@@ -39,9 +39,20 @@ function allNormalizedScores(simulations: SimulationWithResults[]) {
   );
 }
 
+function mapHistory(simulations: SimulationWithHistory[]) {
+  return simulations
+    .flatMap((simulation) => simulation.results.map((result) => mapSimulationResult(result, simulation)))
+    .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt));
+}
+
+const ownResults = (simulations: SimulationWithResults[]) => simulations.flatMap((simulation) => simulation.results);
+
 const simulationsWithOwnResults = (userId: string) =>
   ({
-    include: { results: { where: { userId }, orderBy: { submittedAt: "desc" } } },
+    include: {
+      results: { where: { userId }, orderBy: { submittedAt: "desc" } },
+      module: { select: { title: true } },
+    },
     orderBy: { createdAt: "desc" },
   }) satisfies Prisma.Subject$simulationsArgs;
 
@@ -108,11 +119,9 @@ export async function getSubjectDetail(userId: string, subjectId: string): Promi
     progress: subject.progress,
     difficulty: subject.difficulty,
     finalScore: calculateFinalScore(latestNormalizedScores(subject.simulations)),
-    modules: buildModuleSnapshots(subject.modules, subject.contents),
+    modules: buildModuleSnapshots(subject.modules, subject.contents, ownResults(subject.simulations)),
     contents: subject.contents.map(mapContentDetail),
-    history: subject.simulations
-      .flatMap((simulation) => simulation.results.map((result) => mapSimulationResult(result, simulation)))
-      .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt)),
+    history: mapHistory(subject.simulations),
   };
 }
 
@@ -121,6 +130,7 @@ export async function getSimulationSubjects(userId: string): Promise<SimulationS
   const subjects = await prisma.subject.findMany({
     where: { userId },
     include: {
+      modules: moduleListSelect,
       contents: { orderBy: { createdAt: "desc" }, select: contentSummarySelect },
       simulations: simulationsWithOwnResults(userId),
     },
@@ -132,13 +142,10 @@ export async function getSimulationSubjects(userId: string): Promise<SimulationS
     title: subject.title,
     status: subject.status,
     finalScore: calculateFinalScore(latestNormalizedScores(subject.simulations)),
+    modules: buildModuleSnapshots(subject.modules, subject.contents, ownResults(subject.simulations)),
     contents: subject.contents.map(mapContentSummaryRow),
-    availableQuestionCount: subject.contents
-      .filter((content) => content.processingStatus === "COMPLETED")
-      .reduce((total, content) => total + toQuestionArray(content.trainingQuestions).length, 0),
-    history: subject.simulations
-      .flatMap((simulation) => simulation.results.map((result) => mapSimulationResult(result, simulation)))
-      .sort((left, right) => right.submittedAt.localeCompare(left.submittedAt)),
+    availableQuestionCount: countAvailableQuestions(subject.contents),
+    history: mapHistory(subject.simulations),
   }));
 }
 

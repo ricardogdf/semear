@@ -1,5 +1,6 @@
 import {
   calculateImprovement,
+  findWeakestModule,
   normalizeScore,
   type DashboardInsight,
   type DashboardOverview,
@@ -7,7 +8,21 @@ import {
 
 import { prisma } from "./client";
 import { contentSummarySelect, mapContentSummaryRow } from "./mappers";
+import { buildModuleSnapshots } from "./modules";
 import { getSubjectsOverview } from "./subjects";
+
+/** Módulo com menor desempenho da matéria (só quando há módulos avaliados para comparar). */
+async function findWeakestModuleOf(userId: string, subjectId: string) {
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, userId },
+    select: {
+      modules: { select: { id: true, title: true } },
+      contents: { select: { id: true, moduleId: true, processingStatus: true, trainingQuestions: true } },
+      results: { where: { userId }, select: { contentStats: true } },
+    },
+  });
+  return subject ? findWeakestModule(buildModuleSnapshots(subject.modules, subject.contents, subject.results)) : undefined;
+}
 
 export async function getDashboardOverview(userId: string): Promise<DashboardOverview> {
   const [subjects, recentContents, recentResults] = await Promise.all([
@@ -62,12 +77,16 @@ export async function getDashboardOverview(userId: string): Promise<DashboardOve
 
   const evaluated = subjects.filter((subject) => subject.attemptCount > 0);
   const weakest = [...evaluated].sort((left, right) => left.averageScore - right.averageScore)[0];
+  const weakestModule = weakest ? await findWeakestModuleOf(userId, weakest.subjectId) : undefined;
   insights.push({
     id: "focus",
     title: "Onde focar",
-    description: weakest
-      ? `"${weakest.title}" tem a menor média nos simulados (${weakest.averageScore.toFixed(1)}/10). Revise as aulas dessa matéria.`
-      : "Quando você fizer simulados, indicaremos aqui a matéria que pede mais atenção.",
+    description: !weakest
+      ? "Quando você fizer simulados, indicaremos aqui a matéria que pede mais atenção."
+      : `"${weakest.title}" tem a menor média nos simulados (${weakest.averageScore.toFixed(1)}/10). ` +
+        (weakestModule
+          ? `O módulo com menor desempenho é "${weakestModule.title}" (${weakestModule.score.toFixed(1)}/10): faça um simulado só dele.`
+          : "Revise as aulas dessa matéria."),
   });
 
   const pendingReview = await prisma.content.count({

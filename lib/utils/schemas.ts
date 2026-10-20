@@ -153,6 +153,8 @@ export const simulationSubmissionSchema = z.object({
 
 export const generateSimulationSchema = z.object({
   subjectId: z.string().trim().min(1, "Matéria obrigatória."),
+  /** Sorteia só das aulas deste módulo. Ausente ou null: matéria completa. */
+  moduleId: z.string().trim().min(1).max(64).nullish(),
 });
 
 export const subjectStatusFilterSchema = z.enum(subjectStatusValues).optional();
