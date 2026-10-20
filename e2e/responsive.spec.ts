@@ -46,6 +46,12 @@ for (const viewport of viewports) {
       await expectNoHorizontalOverflow(page);
       await page.screenshot({ path: `test-results/screenshots/${viewport.name}-subject-detail.png`, fullPage: true });
 
+      await page.goto("/simulations");
+      await page.getByRole("button", { name: /Ciências Ambientais/ }).click();
+      await page.waitForLoadState("networkidle");
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({ path: `test-results/screenshots/${viewport.name}-simulation-setup.png`, fullPage: true });
+
       if (viewport.width < 768) {
         await page.getByRole("button", { name: "Abrir menu" }).click();
         await page.screenshot({ path: `test-results/screenshots/${viewport.name}-drawer.png` });

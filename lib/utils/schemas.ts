@@ -120,9 +120,25 @@ export const aiSelectionSchema = z.object({
   model: z.string().trim().min(1).max(200).optional(),
 });
 
+const moduleTitle = z
+  .string({ required_error: "Informe o nome do módulo." })
+  .trim()
+  .min(1, "Informe o nome do módulo.")
+  .max(120, "Nome de módulo longo demais.");
+
 export const uploadContentSchema = z.object({
   subjectId: z.string().trim().min(1, "Selecione ou digite uma matéria.").max(120, "Nome de matéria longo demais."),
+  /** Módulo da matéria (existente ou novo). Vazio: aula sem módulo. */
+  module: z.string().trim().max(120, "Nome de módulo longo demais.").optional(),
 });
+
+/** Criação e renomeação de módulo. */
+export const moduleSchema = z.object({ title: moduleTitle }).strict();
+
+/** Move a aula para outro módulo da mesma matéria (null: sem módulo). */
+export const updateContentSchema = z
+  .object({ moduleId: z.string().trim().min(1).max(64).nullable() })
+  .strict();
 
 export const simulationSubmissionSchema = z.object({
   answers: z
@@ -137,6 +153,8 @@ export const simulationSubmissionSchema = z.object({
 
 export const generateSimulationSchema = z.object({
   subjectId: z.string().trim().min(1, "Matéria obrigatória."),
+  /** Sorteia só das aulas deste módulo. Ausente ou null: matéria completa. */
+  moduleId: z.string().trim().min(1).max(64).nullish(),
 });
 
 export const subjectStatusFilterSchema = z.enum(subjectStatusValues).optional();

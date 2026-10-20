@@ -111,6 +111,24 @@ describe("upload e processamento", () => {
     expect(run).toMatchObject({ status: "SUCCEEDED", provider: "ANTHROPIC", model: "modelo-a", questionsGenerated: 1 });
   });
 
+  it("vincula a aula a um módulo existente ou novo, ou direto na matéria", async () => {
+    const fake = installFakeProvider();
+    didacticResponders(fake);
+    const { cookie } = await userWithProvider(fake);
+
+    const first = await (await uploadRequest(cookie, DIDACTIC, { module: "Ciclo da água" })).json();
+    expect(first).toMatchObject({ subjectTitle: "Ciências", moduleTitle: "Ciclo da água" });
+
+    // O mesmo nome com outras maiúsculas reaproveita o módulo; sem módulo, a aula fica direto na matéria.
+    const second = await (await uploadRequest(cookie, DIDACTIC, { subjectId: "ciências", module: "CICLO DA água" })).json();
+    expect(second.moduleId).toBe(first.moduleId);
+    const direct = await (await uploadRequest(cookie, DIDACTIC, { module: "   " })).json();
+    expect(direct).toMatchObject({ subjectTitle: "Ciências", moduleId: null, moduleTitle: null });
+
+    expect(await prisma.subject.count()).toBe(1);
+    expect(await prisma.subjectModule.count()).toBe(1);
+  });
+
   it("aula introdutória: processada sem questões", async () => {
     const fake = installFakeProvider();
     fake.responders = {

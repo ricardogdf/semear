@@ -105,7 +105,7 @@ export function SubjectsTable() {
                       {formatStatusLabel(subject.status)}
                     </Badge>
                   </div>
-                  <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <dl className="mt-3 grid grid-cols-4 gap-2 text-xs">
                     <div>
                       <dt className="text-muted-foreground">Nota</dt>
                       <dd className="font-semibold">{subject.finalScore.toFixed(1)}/10</dd>
@@ -113,6 +113,10 @@ export function SubjectsTable() {
                     <div>
                       <dt className="text-muted-foreground">Aulas</dt>
                       <dd className="font-semibold">{subject.contentCount}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Módulos</dt>
+                      <dd className="font-semibold">{subject.moduleCount}</dd>
                     </div>
                     <div>
                       <dt className="text-muted-foreground">Progresso</dt>
@@ -132,6 +136,7 @@ export function SubjectsTable() {
                   <TableHead>Status</TableHead>
                   <TableHead>Progresso</TableHead>
                   <TableHead>Aulas</TableHead>
+                  <TableHead>Módulos</TableHead>
                   <TableHead>Nota</TableHead>
                 </TableRow>
               </TableHeader>
@@ -159,6 +164,7 @@ export function SubjectsTable() {
                       </div>
                     </TableCell>
                     <TableCell>{subject.contentCount}</TableCell>
+                    <TableCell>{subject.moduleCount}</TableCell>
                     <TableCell>{subject.finalScore.toFixed(1)}/10</TableCell>
                   </TableRow>
                 ))}

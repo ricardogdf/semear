@@ -9,6 +9,7 @@ import type {
   SimulationSubjectSnapshot,
   SimulationSubmissionResult,
   SubjectDetailSnapshot,
+  SubjectOption,
   SubjectScoreSnapshot,
   UserRoleValue,
 } from "@/lib/utils";
@@ -27,6 +28,12 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Requisições que saem depois do logout recebem 401; sem esta trava, elas redirecionariam para
+ * /login?next=… no lugar da navegação do próprio logout. A página é recarregada em seguida.
+ */
+let sessionEnding = false;
+
 async function request<T>(input: string, init: RequestInit = {}, options: { redirectOn401?: boolean } = {}): Promise<T> {
   let response: Response;
   try {
@@ -42,7 +49,7 @@ async function request<T>(input: string, init: RequestInit = {}, options: { redi
       fieldErrors?: Record<string, string[]>;
     } | null;
 
-    if (response.status === 401 && options.redirectOn401 !== false && typeof window !== "undefined") {
+    if (response.status === 401 && options.redirectOn401 !== false && !sessionEnding && typeof window !== "undefined") {
       const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
       window.location.assign(`/login?next=${next}`);
     }
@@ -72,7 +79,10 @@ export const login = (body: { email: string; password: string }) =>
 export const completeFirstAccess = (body: { email: string; code: string; password: string; confirmPassword: string }) =>
   request<{ user: CurrentUser }>("/api/auth/first-access", json("POST", body), { redirectOn401: false });
 
-export const logout = () => request<{ ok: true }>("/api/auth/logout", json("POST"), { redirectOn401: false });
+export const logout = () => {
+  sessionEnding = true;
+  return request<{ ok: true }>("/api/auth/logout", json("POST"), { redirectOn401: false });
+};
 
 export const changePassword = (body: { currentPassword: string; newPassword: string; confirmPassword: string }) =>
   request<{ ok: true }>("/api/auth/password", json("POST", body));
@@ -87,7 +97,7 @@ export const getDashboard = () => request<DashboardOverview>("/api/dashboard");
 export const getSubjects = (status?: string) =>
   request<SubjectScoreSnapshot[]>(`/api/subjects${status ? `?status=${encodeURIComponent(status)}` : ""}`);
 
-export const getSubjectOptions = () => request<Array<{ id: string; title: string }>>("/api/subjects?compact=1");
+export const getSubjectOptions = () => request<SubjectOption[]>("/api/subjects?compact=1");
 
 export const getSubjectDetails = (subjectId: string) =>
   request<SubjectDetailSnapshot>(`/api/subjects/${encodeURIComponent(subjectId)}`);
@@ -98,6 +108,20 @@ export const updateSubject = (subjectId: string, body: Record<string, unknown>) 
 export const deleteSubject = (subjectId: string) =>
   request<{ ok: true }>(`/api/subjects/${encodeURIComponent(subjectId)}`, json("DELETE"));
 
+interface ModuleRecord {
+  id: string;
+  title: string;
+}
+
+export const createModule = (subjectId: string, title: string) =>
+  request<ModuleRecord>(`/api/subjects/${encodeURIComponent(subjectId)}/modules`, json("POST", { title }));
+
+export const renameModule = (moduleId: string, title: string) =>
+  request<ModuleRecord>(`/api/modules/${encodeURIComponent(moduleId)}`, json("PATCH", { title }));
+
+export const deleteModule = (moduleId: string) =>
+  request<{ ok: true }>(`/api/modules/${encodeURIComponent(moduleId)}`, json("DELETE"));
+
 export const uploadContent = (formData: FormData) =>
   request<ContentDetailSnapshot>("/api/content/upload", { method: "POST", body: formData });
 
@@ -106,6 +130,10 @@ export const reprocessContent = (contentId: string, body: { provider?: AiProvide
 
 export const deleteContent = (contentId: string) =>
   request<{ ok: true }>(`/api/content/${encodeURIComponent(contentId)}`, json("DELETE"));
+
+/** Move a aula para um módulo da matéria; `null` deixa a aula direto na matéria. */
+export const moveContentToModule = (contentId: string, moduleId: string | null) =>
+  request<ContentDetailSnapshot>(`/api/content/${encodeURIComponent(contentId)}`, json("PATCH", { moduleId }));
 
 interface ProcessingRun {
   id: string;
@@ -125,8 +153,9 @@ export const getProcessingRuns = (contentId: string) =>
 
 export const getSimulations = () => request<SimulationSubjectSnapshot[]>("/api/simulations");
 
-export const generateSimulation = (subjectId: string) =>
-  request<SimulationSnapshot>("/api/simulations/generate", json("POST", { subjectId }));
+/** Sem `moduleId`, o simulado é da matéria completa. */
+export const generateSimulation = (subjectId: string, moduleId?: string | null) =>
+  request<SimulationSnapshot>("/api/simulations/generate", json("POST", { subjectId, moduleId: moduleId ?? null }));
 
 export const submitSimulation = (
   simulationId: string,

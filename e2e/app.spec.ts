@@ -197,5 +197,45 @@ test.describe("estudo e simulados", () => {
     await page.getByRole("button", { name: "Finalizar" }).click();
     await expect(page.getByRole("heading", { name: "Simulado concluído" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Revisão" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Desempenho por módulo" })).toBeVisible();
+  });
+
+  test("organiza as aulas em módulos e faz simulado só de um módulo", async ({ page }) => {
+    await loginAs(page, "user@e2e.test");
+    await page.goto("/subjects");
+    await page.getByRole("link", { name: "Ciências Ambientais" }).first().click();
+
+    await page.getByRole("button", { name: "Novo módulo" }).click();
+    await page.getByRole("dialog").getByLabel("Nome do módulo").fill("Biomas");
+    await page.getByRole("dialog").getByRole("button", { name: "Criar módulo" }).click();
+    await expect(page.getByRole("heading", { name: "Biomas", exact: true })).toBeVisible();
+
+    // Aula para um módulo existente.
+    await page.getByRole("button", { name: /Apresentação da disciplina/ }).click();
+    await page.getByLabel("Módulo", { exact: true }).selectOption({ label: "Biomas" });
+    await expect(page.getByText('Aula movida para o módulo "Biomas".')).toBeVisible();
+
+    // Módulo novo criado direto no seletor da aula.
+    await page.getByRole("button", { name: /Slides digitalizados/ }).click();
+    await page.getByLabel("Módulo", { exact: true }).selectOption({ label: "+ Criar novo módulo…" });
+    await page.getByRole("dialog").getByLabel("Nome do módulo").fill("Revisão");
+    await page.getByRole("dialog").getByRole("button", { name: "Criar módulo" }).click();
+    await expect(page.getByText('Aula movida para o módulo "Revisão".')).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Revisão (1)" })).toBeVisible();
+
+    await page.getByRole("link", { name: "Fazer simulado do módulo Hidrologia" }).click();
+    await page.waitForURL(/\/simulations\?open=.+&module=.+/);
+    await expect(page.getByRole("radio", { name: "Hidrologia" })).toBeChecked();
+    await page.getByRole("button", { name: "Gerar e iniciar" }).click();
+
+    await expect(page.getByRole("timer")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Hidrologia");
+    for (let index = 0; index < 3; index += 1) {
+      await page.getByRole("radio").first().click();
+      if (index < 2) await page.getByRole("button", { name: /Próxima/ }).click();
+    }
+    await page.getByRole("button", { name: "Finalizar" }).click();
+    await expect(page.getByRole("heading", { name: "Simulado concluído" })).toBeVisible();
+    await expect(page.getByText("Ciências Ambientais · Módulo Hidrologia")).toBeVisible();
   });
 });

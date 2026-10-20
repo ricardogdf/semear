@@ -3,6 +3,10 @@
 Plataforma de estudos fechada: o usuário envia aulas (PDF/TXT) e a IA do provedor que ele conectou
 gera resumo, palavras-chave e questões. Next.js 15 + Prisma/PostgreSQL.
 
+As aulas ficam em matérias e, se o usuário quiser, em módulos dentro delas (ex.: Multiplicação e
+Divisão em Matemática). Os simulados podem ser da matéria completa ou de um módulo, e o desempenho por
+módulo (calculado a partir das questões respondidas em qualquer simulado) aponta o módulo mais fraco.
+
 ## Rodar localmente
 
 Requisitos: Node 22 e PostgreSQL.

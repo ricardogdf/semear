@@ -22,7 +22,10 @@ export const POST = authRoute("user", async ({ request, user }) => {
     throw new DomainError("VALIDATION", "Envio inválido.");
   }
 
-  const { subjectId } = uploadContentSchema.parse({ subjectId: formData.get("subjectId") });
+  const { subjectId, module: moduleRef } = uploadContentSchema.parse({
+    subjectId: formData.get("subjectId"),
+    module: optionalField(formData, "module"),
+  });
   const selection = aiSelectionSchema.parse({
     provider: optionalField(formData, "provider"),
     model: optionalField(formData, "model"),
@@ -36,6 +39,7 @@ export const POST = authRoute("user", async ({ request, user }) => {
   const { source, text } = await extractUploadedText(file);
   const content = await createAndProcessContent(user.id, {
     subjectRef: subjectId,
+    moduleRef,
     body: text,
     originalFileName: file.name.slice(0, 200),
     source,

@@ -63,6 +63,9 @@ export interface ContentSummarySnapshot {
   title: string;
   subjectId: string;
   subjectTitle: string;
+  /** Módulo da matéria ao qual a aula pertence (null: sem módulo). */
+  moduleId: string | null;
+  moduleTitle: string | null;
   source: "TXT" | "PDF";
   createdAt: string;
   shortSummary: string;
@@ -98,7 +101,31 @@ export interface SubjectScoreSnapshot {
   averageScore: number;
   difficulty: number;
   contentCount: number;
+  moduleCount: number;
   attemptCount: number;
+}
+
+/** Módulo de uma matéria com o desempenho do usuário nas questões das aulas dele. */
+export interface ModuleSnapshot {
+  id: string;
+  title: string;
+  contentCount: number;
+  /** Questões das aulas processadas do módulo (banco do simulado do módulo). */
+  availableQuestionCount: number;
+  /**
+   * Desempenho (0–10): acertos nas questões das aulas do módulo em todos os simulados da
+   * matéria (completos ou só do módulo). null enquanto nenhuma questão do módulo foi respondida.
+   */
+  score: number | null;
+  /** Questões do módulo já respondidas em simulados (base do desempenho). */
+  attemptedQuestions: number;
+}
+
+/** Matéria para os campos de escolha (envio de aula), com os módulos dela. */
+export interface SubjectOption {
+  id: string;
+  title: string;
+  modules: Array<{ id: string; title: string }>;
 }
 
 export interface SimulationResultSnapshot {
@@ -109,6 +136,10 @@ export interface SimulationResultSnapshot {
   submittedAt: string;
   correctAnswers: number;
   totalQuestions: number;
+  /** Módulo do simulado; null quando é da matéria completa ou o módulo foi excluído. */
+  moduleId: string | null;
+  /** Nome do módulo do simulado (mantido mesmo se o módulo for excluído); null: matéria completa. */
+  moduleTitle: string | null;
 }
 
 export interface SimulationSnapshot {
@@ -119,6 +150,9 @@ export interface SimulationSnapshot {
   createdAt: string;
   /** Prazo final para envio (ISO). */
   deadline: string;
+  /** Módulo sorteado (null: matéria completa). */
+  moduleId: string | null;
+  moduleTitle: string | null;
   questions: SimulationQuestion[];
   latestResult?: SimulationResultSnapshot;
 }
@@ -129,10 +163,22 @@ export interface SimulationBreakdownItem {
   userAnswer: string | null;
   correctAnswer: string;
   isCorrect: boolean;
+  /** Módulo da aula de origem da questão (null: aula sem módulo ou origem desconhecida). */
+  moduleTitle: string | null;
+}
+
+/** Acertos de uma tentativa agrupados pelo módulo da aula de origem de cada questão. */
+export interface SimulationModuleBreakdown {
+  /** null: aulas sem módulo. */
+  moduleId: string | null;
+  moduleTitle: string | null;
+  correct: number;
+  total: number;
 }
 
 export interface SimulationSubmissionResult extends SimulationResultSnapshot {
   breakdown: SimulationBreakdownItem[];
+  moduleBreakdown: SimulationModuleBreakdown[];
 }
 
 export interface SimulationSubjectSnapshot {
@@ -140,6 +186,7 @@ export interface SimulationSubjectSnapshot {
   title: string;
   status: SubjectStatusValue;
   finalScore: number;
+  modules: ModuleSnapshot[];
   contents: ContentSummarySnapshot[];
   history: SimulationResultSnapshot[];
   availableQuestionCount: number;
@@ -154,6 +201,7 @@ export interface SubjectDetailSnapshot {
   progress: number;
   difficulty: number;
   finalScore: number;
+  modules: ModuleSnapshot[];
   contents: ContentDetailSnapshot[];
   history: SimulationResultSnapshot[];
 }
