@@ -2,10 +2,17 @@
 
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Flag, LoaderCircle, RotateCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Dumbbell, Flag, LoaderCircle, RotateCcw } from "lucide-react";
 
 import { Alert, Badge, Button, Modal, ModalContent, ModalDescription, ModalTitle } from "@/components/ui";
-import { cn, formatMinutes, type SimulationSubmissionResult } from "@/lib/utils";
+import {
+  cn,
+  formatMinutes,
+  formatSimulationScope,
+  NO_MODULE_LABEL,
+  type SimulationModuleBreakdown,
+  type SimulationSubmissionResult,
+} from "@/lib/utils";
 
 import { submitSimulation } from "@/lib/api";
 import { clearActiveSimulation, saveActiveSimulation, type ActiveSimulation } from "@/lib/simulation-storage";
@@ -13,13 +20,68 @@ import { clearActiveSimulation, saveActiveSimulation, type ActiveSimulation } fr
 interface SimulationAttemptFormProps {
   active: ActiveSimulation;
   onExit: () => void;
+  /** Abre um novo simulado só do módulo escolhido no resultado. */
+  onTrainModule?: (moduleId: string) => void;
+}
+
+/** Acertos por módulo de um simulado da matéria completa, com atalho para treinar cada módulo. */
+function ModuleBreakdown({
+  groups,
+  onTrainModule,
+}: {
+  groups: SimulationModuleBreakdown[];
+  onTrainModule?: (moduleId: string) => void;
+}) {
+  return (
+    <section className="rounded-[2rem] border border-border/50 bg-card p-5 sm:p-8" aria-labelledby="modules-result-title">
+      <h2 id="modules-result-title" className="text-lg font-semibold">Desempenho por módulo</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Treine separadamente os módulos em que você mais errou.</p>
+      <ul className="mt-5 grid gap-3 md:grid-cols-2">
+        {groups.map((group) => {
+          const title = group.moduleTitle ?? NO_MODULE_LABEL;
+          const percentage = Math.round((group.correct / group.total) * 100);
+          return (
+            <li key={group.moduleId ?? "sem-modulo"} className="flex min-w-0 flex-col gap-2 rounded-2xl border border-border/40 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="min-w-0 break-words font-medium">{title}</p>
+                <p className="text-sm tabular-nums text-muted-foreground">
+                  <strong className="text-foreground">{group.correct}</strong> de {group.total} ({percentage}%)
+                </p>
+              </div>
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-secondary"
+                role="progressbar"
+                aria-valuenow={percentage}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`Acertos em ${title}`}
+              >
+                <div className={cn("h-full rounded-full", percentage < 50 ? "bg-warning" : "bg-primary")} style={{ width: `${percentage}%` }} />
+              </div>
+              {group.moduleId && group.correct < group.total && onTrainModule ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-1 self-start"
+                  aria-label={`Treinar este módulo: ${title}`}
+                  onClick={() => onTrainModule(group.moduleId!)}
+                >
+                  <Dumbbell className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Treinar este módulo
+                </Button>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
 }
 
 function secondsUntil(deadline: string) {
   return Math.max(0, Math.floor((new Date(deadline).getTime() - Date.now()) / 1000));
 }
 
-export function SimulationAttemptForm({ active, onExit }: SimulationAttemptFormProps) {
+export function SimulationAttemptForm({ active, onExit, onTrainModule }: SimulationAttemptFormProps) {
   const { simulation } = active;
   const [index, setIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<Record<number, string>>(active.answers);
@@ -76,6 +138,8 @@ export function SimulationAttemptForm({ active, onExit }: SimulationAttemptFormP
 
   if (result) {
     const percentage = Math.round((result.correctAnswers / result.totalQuestions) * 100);
+    // Simulados de um módulo já são de um assunto só; a divisão por módulo vale para a matéria completa.
+    const showModules = !simulation.moduleId && result.moduleBreakdown.some((group) => group.moduleId !== null);
     return (
       <div className="space-y-6">
         <section className="rounded-[2rem] border border-border/50 bg-card p-6 text-center sm:p-8" aria-labelledby="result-title">
@@ -83,7 +147,9 @@ export function SimulationAttemptForm({ active, onExit }: SimulationAttemptFormP
             <CheckCircle2 className="h-10 w-10 text-primary" aria-hidden />
           </div>
           <h1 id="result-title" className="font-[var(--font-heading)] text-2xl font-semibold sm:text-3xl">Simulado concluído</h1>
-          <p className="mt-1 text-muted-foreground">{active.subjectTitle}</p>
+          <p className="mt-1 break-words text-muted-foreground">
+            {active.subjectTitle} · {formatSimulationScope(simulation.moduleTitle)}
+          </p>
           <dl className="mt-6 grid grid-cols-3 gap-3">
             <div>
               <dt className="text-xs text-muted-foreground sm:text-sm">Nota</dt>
@@ -105,11 +171,16 @@ export function SimulationAttemptForm({ active, onExit }: SimulationAttemptFormP
           </Button>
         </section>
 
+        {showModules ? <ModuleBreakdown groups={result.moduleBreakdown} onTrainModule={onTrainModule} /> : null}
+
         <section className="rounded-[2rem] border border-border/50 bg-card p-5 sm:p-8" aria-labelledby="review-title">
           <h2 id="review-title" className="mb-5 text-lg font-semibold">Revisão</h2>
           <ol className="space-y-3">
             {result.breakdown.map((item, position) => (
               <li key={position} className={cn("rounded-2xl border p-4", item.isCorrect ? "border-success/30 bg-success/5" : "border-danger/30 bg-danger/5")}>
+                {showModules && item.moduleTitle ? (
+                  <Badge variant="outline" className="mb-2 px-2 py-0.5 text-[10px]">{item.moduleTitle}</Badge>
+                ) : null}
                 <p className="text-sm font-medium leading-relaxed">
                   <span className="sr-only">{item.isCorrect ? "Correta: " : "Incorreta: "}</span>
                   {position + 1}. {item.question}
@@ -149,7 +220,10 @@ export function SimulationAttemptForm({ active, onExit }: SimulationAttemptFormP
             <ChevronLeft className="h-5 w-5" />
           </button>
           <div className="min-w-0">
-            <h1 className="truncate text-sm font-semibold">{active.subjectTitle}</h1>
+            <h1 className="truncate text-sm font-semibold">
+              {active.subjectTitle}
+              {simulation.moduleTitle ? ` · ${simulation.moduleTitle}` : ""}
+            </h1>
             <p className="text-xs text-muted-foreground">
               {answeredCount} de {total} respondidas
             </p>

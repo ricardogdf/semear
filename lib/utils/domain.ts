@@ -91,6 +91,11 @@ export function groupContentsByModule<T extends { moduleId: string | null }>(
   return groups.filter((group) => group.contents.length > 0);
 }
 
+/** Rótulo do conteúdo de um simulado: um módulo ou a matéria inteira. */
+export function formatSimulationScope(moduleTitle: string | null | undefined) {
+  return moduleTitle ? `Módulo ${moduleTitle}` : "Matéria completa";
+}
+
 /**
  * Módulo com o menor desempenho, para indicar onde treinar. Só compara módulos que já têm
  * questões respondidas (pelo menos dois) e não aponta nenhum se o menor já estiver com nota máxima.
