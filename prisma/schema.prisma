@@ -194,6 +194,7 @@ model Subject {
   difficulty    Int
   userId        String
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modules       SubjectModule[]
   contents      Content[]
   simulations   Simulation[]
   results       SimulationResult[]
@@ -201,6 +202,20 @@ model Subject {
   updatedAt     DateTime           @updatedAt
 
   @@unique([userId, title])
+}
+
+/// Módulo de uma matéria (ex.: Multiplicação em Matemática): agrupa aulas e permite simulados só dele.
+model SubjectModule {
+  id          String       @id @default(cuid())
+  title       String
+  subjectId   String
+  subject     Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  contents    Content[]
+  simulations Simulation[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([subjectId, title])
 }
 
 model Content {
@@ -226,11 +241,15 @@ model Content {
   errorMessage         String?
   subjectId            String
   subject              Subject                 @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  /// Módulo da mesma matéria (opcional). Excluir o módulo mantém a aula na matéria, sem módulo.
+  moduleId             String?
+  module               SubjectModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   processingRuns       ContentProcessingRun[]
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 
   @@index([subjectId])
+  @@index([moduleId])
 }
 
 /// Histórico de cada execução de processamento (provedor, modelo, resultado).
@@ -259,15 +278,22 @@ model Simulation {
   id               String             @id @default(cuid())
   title            String
   timeLimitMinutes Int
+  /// Questões sorteadas com o gabarito e a aula de origem (contentId). Nunca enviadas ao navegador.
   questions        Json
   maxScore         Decimal            @db.Decimal(4, 2)
   subjectId        String
   subject          Subject            @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  /// Simulado só de um módulo. Nulo: matéria completa (ou módulo já excluído; ver moduleTitle).
+  moduleId         String?
+  module           SubjectModule?     @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+  /// Nome do módulo na criação: identifica o simulado no histórico mesmo se o módulo for excluído.
+  moduleTitle      String?
   results          SimulationResult[]
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
 
   @@index([subjectId])
+  @@index([moduleId])
 }
 
 model SimulationResult {
@@ -276,6 +302,8 @@ model SimulationResult {
   correctAnswers Int
   totalQuestions Int
   answers        Json
+  /// Acertos por aula de origem ([{ contentId, correct, total }]): base do desempenho por módulo.
+  contentStats   Json       @default("[]")
   submittedAt    DateTime   @default(now())
   userId         String
   user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
