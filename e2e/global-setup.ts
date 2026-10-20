@@ -38,7 +38,7 @@ export default async function globalSetup() {
     ];
 
     for (const owner of [admin, user]) {
-      await prisma.subject.create({
+      const subject = await prisma.subject.create({
         data: {
           title: "Ciências Ambientais",
           instructor: "Prof. Diego Ramos",
@@ -91,6 +91,13 @@ export default async function globalSetup() {
             ],
           },
         },
+      });
+
+      // Módulo com a aula que tem questões; as outras aulas ficam direto na matéria.
+      const hydrology = await prisma.subjectModule.create({ data: { title: "Hidrologia", subjectId: subject.id } });
+      await prisma.content.updateMany({
+        where: { subjectId: subject.id, title: "Ciclo da água" },
+        data: { moduleId: hydrology.id },
       });
     }
 
