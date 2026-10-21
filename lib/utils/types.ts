@@ -78,6 +78,8 @@ export interface ContentSummarySnapshot {
   processedAt: string | null;
   inputTruncated: boolean;
   errorMessage: string | null;
+  /** Quando o usuário marcou a aula como concluída (null: não concluída). */
+  completedAt: string | null;
 }
 
 /** Aula completa (área de estudo do próprio dono). */
@@ -113,6 +115,8 @@ export interface ModuleSnapshot {
   id: string;
   title: string;
   contentCount: number;
+  /** Aulas do módulo marcadas como concluídas. */
+  completedCount: number;
   /** Questões das aulas processadas do módulo (banco do simulado do módulo). */
   availableQuestionCount: number;
   /**

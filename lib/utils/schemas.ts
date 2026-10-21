@@ -143,10 +143,14 @@ export const uploadContentSchema = z.object({
 /** Criação e renomeação de módulo. */
 export const moduleSchema = z.object({ title: moduleTitle }).strict();
 
-/** Move a aula para outro módulo da mesma matéria (null: sem módulo). */
+/** Move a aula para outro módulo da mesma matéria (null: sem módulo) e/ou a marca como concluída. */
 export const updateContentSchema = z
-  .object({ moduleId: z.string().trim().min(1).max(64).nullable() })
-  .strict();
+  .object({
+    moduleId: z.string().trim().min(1).max(64).nullable().optional(),
+    completed: z.boolean().optional(),
+  })
+  .strict()
+  .refine((data) => data.moduleId !== undefined || data.completed !== undefined, "Nenhuma alteração informada.");
 
 export const simulationSubmissionSchema = z.object({
   answers: z

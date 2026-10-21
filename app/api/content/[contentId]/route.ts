@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { deleteContent, moveContentToModule } from "@/server/db";
+import { deleteContent, updateContent } from "@/server/db";
 import { updateContentSchema } from "@/lib/utils";
 
 import { authRoute, readJson } from "@/server/http/api";
@@ -8,8 +8,8 @@ import { authRoute, readJson } from "@/server/http/api";
 type Params = { contentId: string };
 
 export const PATCH = authRoute<Params>("user", async ({ request, user, params }) => {
-  const { moduleId } = await readJson(request, updateContentSchema);
-  return NextResponse.json(await moveContentToModule(user.id, params.contentId, moduleId));
+  const changes = await readJson(request, updateContentSchema);
+  return NextResponse.json(await updateContent(user.id, params.contentId, changes));
 });
 
 export const DELETE = authRoute<Params>("user", async ({ user, params }) => {

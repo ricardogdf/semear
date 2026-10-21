@@ -141,6 +141,7 @@ function mapContentSummary(content: ContentWithRelations): ContentSummarySnapsho
     processedAt: content.processedAt?.toISOString() ?? null,
     inputTruncated: content.inputTruncated,
     errorMessage: content.errorMessage,
+    completedAt: content.completedAt?.toISOString() ?? null,
   };
 }
 
@@ -173,6 +174,7 @@ export const contentSummarySelect = {
   inputTruncated: true,
   errorMessage: true,
   createdAt: true,
+  completedAt: true,
   moduleId: true,
   subject: { select: { id: true, title: true } },
   module: { select: { title: true } },
