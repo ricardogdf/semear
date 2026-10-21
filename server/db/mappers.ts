@@ -2,7 +2,9 @@ import type { Content, Prisma, Simulation, SimulationResult, Subject, SubjectMod
 
 import {
   normalizeScore,
+  type AuthorSnapshot,
   type ContentDetailSnapshot,
+  type Page,
   type ContentSummarySnapshot,
   type Question,
   type SimulationResultSnapshot,
@@ -180,4 +182,44 @@ type ContentSummaryRow = Prisma.ContentGetPayload<{ select: typeof contentSummar
 
 export function mapContentSummaryRow(content: ContentSummaryRow): ContentSummarySnapshot {
   return mapContentSummary(content as unknown as ContentWithRelations);
+}
+
+// ---------- Comunidade ----------
+
+/** Únicos campos de um usuário que podem aparecer em páginas públicas (nunca e-mail ou papel). */
+export const authorSelect = {
+  id: true,
+  name: true,
+  displayName: true,
+  avatarUrl: true,
+  institution: true,
+  course: true,
+} satisfies Prisma.UserSelect;
+
+type AuthorRow = Prisma.UserGetPayload<{ select: typeof authorSelect }>;
+
+/** Nome mostrado publicamente: o nome de exibição escolhido ou, sem ele, o nome da conta. */
+export function publicName(user: { name: string; displayName: string | null }) {
+  return user.displayName?.trim() || user.name;
+}
+
+export function mapAuthor(user: AuthorRow): AuthorSnapshot {
+  return {
+    id: user.id,
+    displayName: publicName(user),
+    avatarUrl: user.avatarUrl,
+    institution: user.institution,
+    course: user.course,
+  };
+}
+
+export const PAGE_SIZE = 12;
+
+/** Busca um item a mais que o tamanho da página para saber se há próxima página. */
+export function pageWindow(page: number, pageSize = PAGE_SIZE) {
+  return { skip: (page - 1) * pageSize, take: pageSize + 1 };
+}
+
+export function toPage<T>(rows: T[], page: number, pageSize = PAGE_SIZE): Page<T> {
+  return { items: rows.slice(0, pageSize), page, pageSize, hasMore: rows.length > pageSize };
 }

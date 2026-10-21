@@ -9,3 +9,12 @@ export { createModule, deleteModule, renameModule } from "./modules";
 export * from "./contents";
 export * from "./simulations";
 export { getDashboardOverview } from "./dashboard";
+export * from "./profiles";
+export {
+  getPublicSubject,
+  importSubject,
+  listPublicSubjects,
+  rankSubjects,
+  setSubjectVisibility,
+} from "./library";
+export * from "./publications";

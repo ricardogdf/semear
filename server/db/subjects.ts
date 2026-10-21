@@ -72,6 +72,8 @@ export async function getSubjectsOverview(userId: string, status?: SubjectStatus
     subjectId: subject.id,
     title: subject.title,
     status: subject.status,
+    visibility: subject.visibility,
+    isImported: subject.isImported,
     progress: subject.progress,
     finalScore: calculateFinalScore(latestNormalizedScores(subject.simulations)),
     averageScore: calculateAverageScore(allNormalizedScores(subject.simulations)),
@@ -103,6 +105,8 @@ export async function getSubjectDetail(userId: string, subjectId: string): Promi
       modules: moduleListSelect,
       contents: { orderBy: { createdAt: "desc" }, include: contentRelationsInclude },
       simulations: simulationsWithOwnResults(userId),
+      importedFrom: { select: { visibility: true, user: { select: { isActive: true } } } },
+      _count: { select: { imports: true } },
     },
   });
 
@@ -113,6 +117,21 @@ export async function getSubjectDetail(userId: string, subjectId: string): Promi
   return {
     id: subject.id,
     title: subject.title,
+    description: subject.description,
+    visibility: subject.visibility,
+    publishedAt: subject.publishedAt?.toISOString() ?? null,
+    importCount: subject._count.imports,
+    importedFrom: subject.isImported
+      ? {
+          originalId: subject.importedFromId,
+          // O link do original só é oferecido enquanto ele continuar público.
+          originalAvailable: subject.importedFrom?.visibility === "PUBLIC" && subject.importedFrom.user.isActive,
+          title: subject.importedFromTitle ?? subject.title,
+          authorId: subject.importedFromOwnerId,
+          authorName: subject.importedFromAuthorName ?? "Autor desconhecido",
+          importedAt: (subject.importedAt ?? subject.createdAt).toISOString(),
+        }
+      : null,
     instructor: subject.instructor,
     workloadHours: subject.workloadHours,
     status: subject.status,
