@@ -8,7 +8,10 @@ import ReactMarkdown from "react-markdown";
 import {
   BookOpen,
   BrainCircuit,
+  CheckCircle2,
+  ChevronDown,
   ChevronLeft,
+  Circle,
   ClipboardList,
   FileText,
   History,
@@ -59,6 +62,7 @@ import {
   getSubjectDetails,
   moveContentToModule,
   reprocessContent,
+  setContentCompleted,
   updateSubject,
 } from "@/lib/api";
 
@@ -209,7 +213,23 @@ function ContentPanel({
     onError: (error) => notify("error", error.message),
   });
 
+  const complete = useMutation({
+    mutationFn: (completed: boolean) => setContentCompleted(content.id, completed),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<SubjectDetailSnapshot>(["subject", subjectId], (current) =>
+        current
+          ? { ...current, contents: current.contents.map((entry) => (entry.id === updated.id ? updated : entry)) }
+          : current,
+      );
+      // Recarrega para atualizar o progresso dos módulos.
+      void queryClient.invalidateQueries({ queryKey: ["subject", subjectId] });
+      notify("success", updated.completedAt ? "Aula marcada como concluída." : "Aula desmarcada como concluída.");
+    },
+    onError: (error) => notify("error", error.message),
+  });
+
   const hasMaterial = Boolean(content.summary);
+  const done = Boolean(content.completedAt);
 
   return (
     <div className="min-w-0 space-y-5">
@@ -221,6 +241,23 @@ function ContentPanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant={done ? "secondary" : "default"}
+            onClick={() => complete.mutate(!done)}
+            disabled={complete.isPending}
+            aria-label={done ? "Desmarcar aula como concluída" : "Marcar aula como concluída"}
+            title={done ? `Concluída em ${new Date(content.completedAt!).toLocaleDateString("pt-BR")}. Clique para desmarcar.` : undefined}
+          >
+            {complete.isPending ? (
+              <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : done ? (
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-success" aria-hidden />
+            ) : (
+              <Circle className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            )}
+            {done ? "Concluída" : "Marcar como concluída"}
+          </Button>
           <Button size="sm" variant="outline" onClick={() => { reprocess.reset(); setReprocessOpen(true); }} disabled={content.processingStatus === "PROCESSING"}>
             <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reprocessar
           </Button>
@@ -451,6 +488,37 @@ function EditSubjectModal({
   );
 }
 
+/**
+ * Módulos recolhidos na lista de aulas. Sem escolha do usuário, um módulo fica recolhido quando todas
+ * as aulas dele estão concluídas. A escolha fica salva neste navegador, por matéria.
+ */
+function useCollapsedGroups(subjectId: string) {
+  const storageKey = `semear:modulos-recolhidos:${subjectId}`;
+  const [choices, setChoices] = React.useState<Record<string, boolean>>({});
+
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      setChoices(saved ? (JSON.parse(saved) as Record<string, boolean>) : {});
+    } catch {
+      setChoices({});
+    }
+  }, [storageKey]);
+
+  const setCollapsed = (key: string, collapsed: boolean) =>
+    setChoices((current) => {
+      const next = { ...current, [key]: collapsed };
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(next));
+      } catch {
+        // Sem armazenamento (navegação privada etc.): vale só até recarregar a página.
+      }
+      return next;
+    });
+
+  return { isCollapsed: (key: string, byDefault: boolean) => choices[key] ?? byDefault, setCollapsed };
+}
+
 export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -460,6 +528,7 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const panelRef = React.useRef<HTMLDivElement>(null);
+  const { isCollapsed, setCollapsed } = useCollapsedGroups(subjectId);
 
   const removeSubject = useMutation({
     mutationFn: () => deleteSubject(subjectId),
@@ -474,8 +543,12 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
 
   const subject = query.data;
   const groups = subject ? groupContentsByModule(subject.modules, subject.contents) : [];
+  const ordered = groups.flatMap((group) => group.contents);
+  // Sem aula escolhida, abre a primeira ainda não concluída (na ordem da lista).
   const activeContent =
-    subject?.contents.find((content) => content.id === activeContentId) ?? groups[0]?.contents[0];
+    subject?.contents.find((content) => content.id === activeContentId) ??
+    ordered.find((content) => !content.completedAt) ??
+    ordered[0];
 
   if (query.isLoading) {
     return (
@@ -548,41 +621,69 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
             <h2 id="lessons-title" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
               Aulas ({subject.contents.length})
             </h2>
-            {groups.map((group) => (
-              <div key={group.moduleId ?? "sem-modulo"} className="space-y-2">
-                {subject.modules.length > 0 ? (
-                  <h3 className="flex items-center gap-1.5 pt-1 text-xs font-semibold text-muted-foreground">
-                    <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    <span className="min-w-0 break-words">
-                      {group.title} ({group.contents.length})
-                    </span>
-                  </h3>
-                ) : null}
-                <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                  {group.contents.map((content) => (
-                    <li key={content.id}>
+            {groups.map((group) => {
+              const key = group.moduleId ?? "sem-modulo";
+              const completed = group.contents.filter((content) => content.completedAt).length;
+              const allDone = completed === group.contents.length;
+              const collapsible = subject.modules.length > 0;
+              const collapsed = collapsible && isCollapsed(key, allDone);
+              const listId = `lessons-${key}`;
+              return (
+                <div key={key} className="space-y-2">
+                  {collapsible ? (
+                    <h3 className="pt-1">
                       <button
                         type="button"
-                        onClick={() => {
-                          setActiveContentId(content.id);
-                          if (window.matchMedia("(max-width: 1023px)").matches) {
-                            panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          }
-                        }}
-                        aria-current={activeContent?.id === content.id ? "true" : undefined}
-                        className={cn(
-                          "flex w-full flex-col gap-2 rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          activeContent?.id === content.id ? "border-primary/50 bg-primary/10" : "border-border/40 bg-card hover:bg-secondary/40",
-                        )}
+                        aria-expanded={!collapsed}
+                        aria-controls={listId}
+                        onClick={() => setCollapsed(key, !collapsed)}
+                        className="flex min-h-9 w-full items-center gap-1.5 rounded-xl px-1 text-left text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <span className="line-clamp-2 text-sm font-medium">{content.title}</span>
-                        <ProcessingStatusBadge content={content} className="self-start text-[11px]" />
+                        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", collapsed && "-rotate-90")} aria-hidden />
+                        <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        <span className="min-w-0 flex-1 break-words">
+                          {group.title} ({group.contents.length})
+                        </span>
+                        <span className={cn("shrink-0 font-normal", allDone && "text-success")}>
+                          {allDone ? "concluído" : `${completed}/${group.contents.length} concluídas`}
+                        </span>
                       </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                    </h3>
+                  ) : null}
+                  {/* A classe `hidden` é necessária: `grid` sobrepõe o atributo hidden. */}
+                  <ul id={listId} hidden={collapsed} className={cn("grid gap-2 sm:grid-cols-2 lg:grid-cols-1", collapsed && "hidden")}>
+                    {group.contents.map((content) => (
+                      <li key={content.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveContentId(content.id);
+                            if (window.matchMedia("(max-width: 1023px)").matches) {
+                              panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }
+                          }}
+                          aria-current={activeContent?.id === content.id ? "true" : undefined}
+                          className={cn(
+                            "flex w-full flex-col gap-2 rounded-2xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            activeContent?.id === content.id ? "border-primary/50 bg-primary/10" : "border-border/40 bg-card hover:bg-secondary/40",
+                          )}
+                        >
+                          <span className="flex items-start gap-2">
+                            {content.completedAt ? (
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-label="Concluída" />
+                            ) : null}
+                            <span className={cn("line-clamp-2 text-sm font-medium", content.completedAt && "text-muted-foreground")}>
+                              {content.title}
+                            </span>
+                          </span>
+                          <ProcessingStatusBadge content={content} className="self-start text-[11px]" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
           </section>
 
           <div ref={panelRef} className="scroll-mt-20 rounded-[2rem] border border-border/50 bg-card p-5 sm:p-6">

@@ -142,6 +142,9 @@ export const reprocessContent = (contentId: string, body: { provider?: AiProvide
 export const deleteContent = (contentId: string) =>
   request<{ ok: true }>(`/api/content/${encodeURIComponent(contentId)}`, json("DELETE"));
 
+export const setContentCompleted = (contentId: string, completed: boolean) =>
+  request<ContentDetailSnapshot>(`/api/content/${encodeURIComponent(contentId)}`, json("PATCH", { completed }));
+
 /** Move a aula para um módulo da matéria; `null` deixa a aula direto na matéria. */
 export const moveContentToModule = (contentId: string, moduleId: string | null) =>
   request<ContentDetailSnapshot>(`/api/content/${encodeURIComponent(contentId)}`, json("PATCH", { moduleId }));
