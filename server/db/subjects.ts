@@ -103,7 +103,7 @@ export async function getSubjectDetail(userId: string, subjectId: string): Promi
     where: { id: subjectId, userId },
     include: {
       modules: moduleListSelect,
-      contents: { orderBy: { createdAt: "desc" }, include: contentRelationsInclude },
+      contents: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], include: contentRelationsInclude },
       simulations: simulationsWithOwnResults(userId),
       importedFrom: { select: { visibility: true, user: { select: { isActive: true } } } },
       _count: { select: { imports: true } },
@@ -150,7 +150,7 @@ export async function getSimulationSubjects(userId: string): Promise<SimulationS
     where: { userId },
     include: {
       modules: moduleListSelect,
-      contents: { orderBy: { createdAt: "desc" }, select: contentSummarySelect },
+      contents: { orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: contentSummarySelect },
       simulations: simulationsWithOwnResults(userId),
     },
     orderBy: { title: "asc" },
