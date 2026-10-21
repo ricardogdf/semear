@@ -65,6 +65,7 @@ import {
 import { ContentPractice } from "./content-practice";
 import { ModuleFormModal, useRefreshSubject } from "./module-dialogs";
 import { ModulesSection } from "./modules-section";
+import { SubjectSharing } from "./subject-sharing";
 
 function ProcessingHistory({ contentId }: { contentId: string }) {
   const query = useQuery({ queryKey: ["processing-runs", contentId], queryFn: () => getProcessingRuns(contentId) });
@@ -511,6 +512,8 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge variant={getStatusVariant(subject.status)}>{formatStatusLabel(subject.status)}</Badge>
             <Badge variant="outline">Nota {subject.finalScore.toFixed(1)}/10</Badge>
+            {subject.importedFrom ? <Badge variant="secondary">Importada</Badge> : null}
+            {subject.visibility === "PUBLIC" ? <Badge variant="success">Pública</Badge> : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -528,6 +531,8 @@ export function SubjectWorkspace({ subjectId }: { subjectId: string }) {
           </Button>
         </div>
       </header>
+
+      <SubjectSharing key={`${subject.id}-${subject.visibility}`} subject={subject} />
 
       <ModulesSection subjectId={subject.id} modules={subject.modules} />
 
