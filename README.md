@@ -6,6 +6,10 @@ gera resumo, palavras-chave e questões. Next.js 15 + Prisma/PostgreSQL.
 As aulas ficam em matérias e, se o usuário quiser, em módulos dentro delas (ex.: Multiplicação e
 Divisão em Matemática). Os simulados podem ser da matéria completa ou de um módulo, e o desempenho por
 módulo (calculado a partir das questões respondidas em qualquer simulado) aponta o módulo mais fraco.
+As aulas aparecem da mais antiga para a mais recente e podem ser marcadas como concluídas; na lista de
+aulas, cada módulo mostra o progresso e pode ser recolhido (módulos com todas as aulas concluídas já
+começam recolhidos, e a escolha fica salva no navegador). O progresso é pessoal e não vai para cópias
+importadas.
 
 ## Comunidade
 
