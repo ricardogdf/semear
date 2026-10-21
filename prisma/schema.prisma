@@ -292,6 +292,8 @@ model Content {
   moduleId             String?
   module               SubjectModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   processingRuns       ContentProcessingRun[]
+  /// Quando o usuário marcou a aula como concluída (null: não concluída). Pessoal: não vai para cópias importadas.
+  completedAt          DateTime?
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 
