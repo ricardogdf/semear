@@ -101,6 +101,98 @@ export default async function globalSetup() {
       });
     }
 
+    // Comunidade: autora com perfil acadêmico, matéria pública, publicações e um seguidor.
+    // IDs fixos para abrir as páginas públicas direto pela URL nos testes.
+    const diana = await prisma.user.create({
+      data: {
+        id: "e2e-diana",
+        email: "diana@e2e.test",
+        name: "Diana Pesquisadora",
+        role: "USER",
+        passwordHash,
+        institution: "UFMG",
+        course: "Ciências Biológicas",
+        bio: "Pesquisa genética de plantas.",
+      },
+    });
+    const genetics = await prisma.subject.create({
+      data: {
+        id: "e2e-genetica",
+        title: "Genética Básica",
+        description: "Leis de Mendel e herança, com questões de revisão.",
+        instructor: "Profa. Diana",
+        workloadHours: 30,
+        status: "APPROVED",
+        progress: 100,
+        difficulty: 50,
+        userId: diana.id,
+        visibility: "PUBLIC",
+        publishedAt: new Date("2026-09-01T12:00:00Z"),
+      },
+    });
+    const mendel = await prisma.subjectModule.create({ data: { title: "Mendelismo", subjectId: genetics.id } });
+    await prisma.content.create({
+      data: {
+        title: "Primeira lei de Mendel",
+        originalFileName: "mendel.txt",
+        source: "TXT",
+        body: "A primeira lei de Mendel diz que cada característica é determinada por um par de fatores que se separam na formação dos gametas.",
+        summary: "# Primeira lei de Mendel\n\nCada característica é determinada por um par de fatores.",
+        shortSummary: "Segregação dos fatores na formação dos gametas.",
+        importantTopics: "Mendel, segregação, gametas",
+        trainingQuestions: [
+          {
+            question: "O que se separa na formação dos gametas?",
+            options: ["Os fatores de cada par", "As células inteiras", "Os cromossomos sexuais", "As proteínas"],
+            answer: "Os fatores de cada par",
+            sourceExcerpt: "um par de fatores que se separam na formação dos gametas",
+          },
+        ],
+        processingStatus: "COMPLETED",
+        classification: "SUBSTANTIVE",
+        processedAt: new Date(),
+        subjectId: genetics.id,
+        moduleId: mendel.id,
+      },
+    });
+    await prisma.subject.create({
+      data: {
+        id: "e2e-materia-privada",
+        title: "Anotações privadas da Diana",
+        instructor: "X",
+        workloadHours: 0,
+        status: "IN_PROGRESS",
+        progress: 0,
+        difficulty: 50,
+        userId: diana.id,
+      },
+    });
+    await prisma.publication.create({
+      data: {
+        id: "e2e-artigo",
+        type: "ARTICLE",
+        title: "Herança mendeliana em ervilhas",
+        authors: "Diana Pesquisadora; Bruno Estudante",
+        abstract: "Reprodução dos experimentos de Mendel com ervilhas cultivadas em estufa.",
+        institution: "UFMG",
+        publishedOn: new Date("2026-05-10T00:00:00Z"),
+        externalUrl: "https://repositorio.exemplo.edu/handle/123",
+        visibility: "PUBLIC",
+        userId: diana.id,
+      },
+    });
+    await prisma.publication.create({
+      data: {
+        id: "e2e-artigo-privado",
+        type: "TCC",
+        title: "Rascunho privado de TCC",
+        authors: "Diana Pesquisadora",
+        visibility: "PRIVATE",
+        userId: diana.id,
+      },
+    });
+    await prisma.follow.create({ data: { followerId: admin.id, followingId: diana.id } });
+
     await prisma.accessRequest.create({
       data: { name: "Daniela Interessada", email: "daniela@e2e.test", message: "Quero usar para estudar para concursos." },
     });

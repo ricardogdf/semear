@@ -56,6 +56,19 @@ enum ContentClassification {
   INSUFFICIENT
 }
 
+/// Quem vê uma matéria ou publicação: só o dono (PRIVATE) ou qualquer pessoa com o link (PUBLIC).
+enum Visibility {
+  PRIVATE
+  PUBLIC
+}
+
+enum PublicationType {
+  ARTICLE
+  TCC
+  THESIS
+  OTHER
+}
+
 enum ProcessingRunStatus {
   RUNNING
   SUCCEEDED
@@ -66,7 +79,13 @@ model User {
   id                     String                 @id @default(cuid())
   email                  String                 @unique
   name                   String
+  /// Foto de perfil (URL https informada pelo próprio usuário).
   avatarUrl              String?
+  /// Nome exibido no perfil público (se vazio, usa `name`).
+  displayName            String?
+  bio                    String?
+  institution            String?
+  course                 String?
   role                   UserRole               @default(USER)
   isActive               Boolean                @default(true)
   /// Hash scrypt da senha. Nulo até o usuário concluir o primeiro acesso.
@@ -87,6 +106,12 @@ model User {
   courses                Course[]
   subjects               Subject[]
   simulationResults      SimulationResult[]
+  /// Matérias de outros usuários importadas a partir de matérias deste usuário (autoria preservada).
+  importedSubjects       Subject[]              @relation("SubjectImportedFromOwner")
+  followers              Follow[]               @relation("FollowFollowing")
+  following              Follow[]               @relation("FollowFollower")
+  publications           Publication[]
+  publicationLikes       PublicationLike[]
   createdAt              DateTime               @default(now())
   updatedAt              DateTime               @updatedAt
 }
@@ -185,23 +210,45 @@ model Course {
 }
 
 model Subject {
-  id            String             @id @default(cuid())
-  title         String
-  instructor    String
-  workloadHours Int
-  status        SubjectStatus
-  progress      Int
-  difficulty    Int
-  userId        String
-  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  modules       SubjectModule[]
-  contents      Content[]
-  simulations   Simulation[]
-  results       SimulationResult[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id                     String             @id @default(cuid())
+  title                  String
+  instructor             String
+  workloadHours          Int
+  status                 SubjectStatus
+  progress               Int
+  difficulty             Int
+  userId                 String
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Apresentação da matéria na biblioteca pública.
+  description            String             @default("")
+  visibility             Visibility         @default(PRIVATE)
+  /// Quando a matéria foi tornada pública pela última vez (null enquanto privada).
+  publishedAt            DateTime?
+  /// Cópia importada da matéria pública de outro usuário. Fica true mesmo se o original for excluído
+  /// e, por CHECK no banco, a cópia nunca pode ser pública.
+  isImported             Boolean            @default(false)
+  /// Original da cópia (null se o original foi excluído). Cada linha com este campo é uma importação ativa.
+  importedFromId         String?
+  importedFrom           Subject?           @relation("SubjectImports", fields: [importedFromId], references: [id], onDelete: SetNull)
+  imports                Subject[]          @relation("SubjectImports")
+  importedFromOwnerId    String?
+  importedFromOwner      User?              @relation("SubjectImportedFromOwner", fields: [importedFromOwnerId], references: [id], onDelete: SetNull)
+  /// Título e autor do original no momento da importação (autoria preservada mesmo sem o original).
+  importedFromTitle      String?
+  importedFromAuthorName String?
+  importedAt             DateTime?
+  modules                SubjectModule[]
+  contents               Content[]
+  simulations            Simulation[]
+  results                SimulationResult[]
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   @@unique([userId, title])
+  /// Uma importação ativa por usuário por original (também sob requisições simultâneas).
+  @@unique([userId, importedFromId])
+  @@index([importedFromId])
+  @@index([visibility, publishedAt])
 }
 
 /// Módulo de uma matéria (ex.: Multiplicação em Matemática): agrupa aulas e permite simulados só dele.
@@ -245,6 +292,8 @@ model Content {
   moduleId             String?
   module               SubjectModule?          @relation(fields: [moduleId], references: [id], onDelete: SetNull)
   processingRuns       ContentProcessingRun[]
+  /// Quando o usuário marcou a aula como concluída (null: não concluída). Pessoal: não vai para cópias importadas.
+  completedAt          DateTime?
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
 
@@ -313,4 +362,51 @@ model SimulationResult {
   simulation     Simulation @relation(fields: [simulationId], references: [id], onDelete: Cascade)
 
   @@index([subjectId, userId, simulationId])
+}
+
+/// Relação "seguidor segue usuário". A chave composta impede duplicatas; um CHECK impede seguir a si mesmo.
+model Follow {
+  followerId  String
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+/// Artigo, TCC ou outra publicação acadêmica. Só pode ser visto, curtido e compartilhado (nunca importado).
+model Publication {
+  id          String            @id @default(cuid())
+  type        PublicationType
+  title       String
+  /// Autor ou autores, como informados (coautores podem não ser usuários do Semear).
+  authors     String
+  abstract    String            @default("")
+  institution String?
+  publishedOn DateTime?         @db.Date
+  /// Endereço no repositório de origem. O conteúdo externo nunca é copiado para o Semear.
+  externalUrl String?
+  visibility  Visibility        @default(PRIVATE)
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes       PublicationLike[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([visibility, createdAt])
+}
+
+/// Curtida: no máximo uma por usuário por publicação (chave composta).
+model PublicationLike {
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicationId String
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@id([userId, publicationId])
+  @@index([publicationId])
 }

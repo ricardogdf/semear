@@ -216,11 +216,19 @@ export async function reprocessContent(userId: string, contentId: string, choice
   return runProcessing(userId, content.id, choice);
 }
 
-/** Move a aula para um módulo da mesma matéria (ou a deixa sem módulo, com `null`). */
-export async function moveContentToModule(userId: string, contentId: string, moduleId: string | null) {
+/**
+ * Altera uma aula do próprio usuário: move para um módulo da mesma matéria (`null`: sem módulo)
+ * e/ou marca como concluída. Campos ausentes não mudam.
+ */
+export async function updateContent(
+  userId: string,
+  contentId: string,
+  changes: { moduleId?: string | null; completed?: boolean },
+) {
   const content = await loadOwnedContent(userId, contentId);
+  const { moduleId, completed } = changes;
 
-  if (moduleId !== null) {
+  if (moduleId) {
     const target = await prisma.subjectModule.findFirst({
       where: { id: moduleId, subjectId: content.subjectId },
       select: { id: true },
@@ -232,8 +240,13 @@ export async function moveContentToModule(userId: string, contentId: string, mod
 
   await prisma.content.update({
     where: { id: content.id },
-    // Mantém o updatedAt: ele marca quando um processamento começou (detecção de processamento travado).
-    data: { moduleId, updatedAt: content.updatedAt },
+    data: {
+      ...(moduleId !== undefined ? { moduleId } : {}),
+      // Concluir de novo mantém a data da primeira conclusão.
+      ...(completed !== undefined ? { completedAt: completed ? (content.completedAt ?? new Date()) : null } : {}),
+      // Mantém o updatedAt: ele marca quando um processamento começou (detecção de processamento travado).
+      updatedAt: content.updatedAt,
+    },
   });
 
   return mapContentDetail(await loadOwnedContent(userId, contentId));

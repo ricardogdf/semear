@@ -54,6 +54,13 @@ export function ModulesSection({ subjectId, modules }: { subjectId: string; modu
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {entry.contentCount} aula(s) · {entry.availableQuestionCount} questão(ões)
                   </p>
+                  {entry.contentCount > 0 ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {entry.completedCount === entry.contentCount
+                        ? "Todas as aulas concluídas"
+                        : `${entry.completedCount} de ${entry.contentCount} aula(s) concluída(s)`}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="-mr-2 -mt-1 flex shrink-0">
                   <Button size="icon" variant="ghost" className="h-9 w-9" aria-label={`Renomear o módulo ${entry.title}`} onClick={() => setEditing(entry)}>

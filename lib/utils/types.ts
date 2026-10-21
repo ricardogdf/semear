@@ -78,6 +78,8 @@ export interface ContentSummarySnapshot {
   processedAt: string | null;
   inputTruncated: boolean;
   errorMessage: string | null;
+  /** Quando o usuário marcou a aula como concluída (null: não concluída). */
+  completedAt: string | null;
 }
 
 /** Aula completa (área de estudo do próprio dono). */
@@ -94,6 +96,9 @@ export interface SubjectScoreSnapshot {
   subjectId: string;
   title: string;
   status: SubjectStatusValue;
+  visibility: VisibilityValue;
+  /** Cópia importada da biblioteca pública (nunca pode ser publicada). */
+  isImported: boolean;
   progress: number;
   /** Nota da matéria (0–10): média das notas mais recentes de cada simulado. */
   finalScore: number;
@@ -110,6 +115,8 @@ export interface ModuleSnapshot {
   id: string;
   title: string;
   contentCount: number;
+  /** Aulas do módulo marcadas como concluídas. */
+  completedCount: number;
   /** Questões das aulas processadas do módulo (banco do simulado do módulo). */
   availableQuestionCount: number;
   /**
@@ -192,9 +199,29 @@ export interface SimulationSubjectSnapshot {
   availableQuestionCount: number;
 }
 
+/** Origem de uma matéria importada (autoria preservada mesmo se o original sair do ar). */
+export interface SubjectImportOrigin {
+  /** null se o original foi excluído. */
+  originalId: string | null;
+  /** O original continua público: a página dele pode ser aberta e compartilhada. */
+  originalAvailable: boolean;
+  title: string;
+  /** null se a conta do autor foi excluída. */
+  authorId: string | null;
+  authorName: string;
+  importedAt: string;
+}
+
 export interface SubjectDetailSnapshot {
   id: string;
   title: string;
+  description: string;
+  visibility: VisibilityValue;
+  publishedAt: string | null;
+  /** Importações ativas desta matéria (cópias existentes na biblioteca de outros usuários). */
+  importCount: number;
+  /** Presente apenas em cópias importadas. */
+  importedFrom: SubjectImportOrigin | null;
   instructor: string;
   workloadHours: number;
   status: SubjectStatusValue;
@@ -232,6 +259,121 @@ export interface AiSettingsOverview {
   encryptionConfigured: boolean;
   defaultProvider: AiProviderValue | null;
   providers: AiProviderSettings[];
+}
+
+// ---------- Comunidade: perfis, biblioteca pública e publicações ----------
+
+export const visibilityValues = ["PRIVATE", "PUBLIC"] as const;
+export type VisibilityValue = (typeof visibilityValues)[number];
+
+export const publicationTypeValues = ["ARTICLE", "TCC", "THESIS", "OTHER"] as const;
+export type PublicationTypeValue = (typeof publicationTypeValues)[number];
+
+export const rankingValues = ["subjects", "publications", "profiles"] as const;
+export type RankingValue = (typeof rankingValues)[number];
+
+/** Página de uma listagem com ordenação estável. */
+export interface Page<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+/** Dados públicos de um usuário (nunca e-mail, papel ou dados da conta). */
+export interface AuthorSnapshot {
+  id: string;
+  /** Nome de exibição escolhido pelo usuário ou, sem ele, o nome da conta. */
+  displayName: string;
+  avatarUrl: string | null;
+  institution: string | null;
+  course: string | null;
+}
+
+/** Usuário em listas (pesquisa, seguindo, ranking). */
+export interface UserCardSnapshot extends AuthorSnapshot {
+  followerCount: number;
+  /** O visitante autenticado segue este usuário (sempre false para anônimos). */
+  isFollowing: boolean;
+  isSelf: boolean;
+}
+
+export interface PublicProfileSnapshot extends UserCardSnapshot {
+  bio: string | null;
+  followingCount: number;
+  subjects: PublicSubjectCardSnapshot[];
+  publications: PublicationSnapshot[];
+}
+
+/** Perfil do próprio usuário, para edição. */
+export interface OwnProfileSnapshot {
+  id: string;
+  /** Nome da conta (definido pelo administrador). */
+  name: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  institution: string | null;
+  course: string | null;
+}
+
+export interface FollowState {
+  isFollowing: boolean;
+  followerCount: number;
+}
+
+/** Matéria original publicada na biblioteca pública. */
+export interface PublicSubjectCardSnapshot {
+  id: string;
+  title: string;
+  description: string;
+  author: AuthorSnapshot;
+  publishedAt: string | null;
+  /** Importações ativas (cópias existentes). */
+  importCount: number;
+  contentCount: number;
+  moduleCount: number;
+  /** Cópia do visitante, se ele já importou esta matéria. */
+  importedCopyId: string | null;
+  isOwner: boolean;
+}
+
+export interface PublicSubjectDetailSnapshot extends PublicSubjectCardSnapshot {
+  /** PRIVATE só aparece para o próprio dono. */
+  visibility: VisibilityValue;
+  modules: Array<{ id: string; title: string }>;
+  /** Prévia das aulas (sem o texto completo, que só vem com a importação). */
+  contents: Array<{ id: string; title: string; moduleId: string | null; shortSummary: string; questionCount: number }>;
+}
+
+export interface ImportResult {
+  /** Matéria na biblioteca pessoal do usuário (nova cópia ou a já existente). */
+  subjectId: string;
+  alreadyImported: boolean;
+}
+
+export interface PublicationSnapshot {
+  id: string;
+  type: PublicationTypeValue;
+  title: string;
+  authors: string;
+  abstract: string;
+  institution: string | null;
+  /** Data de publicação (AAAA-MM-DD), se informada. */
+  publishedOn: string | null;
+  externalUrl: string | null;
+  visibility: VisibilityValue;
+  createdAt: string;
+  /** Quem cadastrou a publicação no Semear. */
+  owner: AuthorSnapshot;
+  likeCount: number;
+  likedByMe: boolean;
+  isOwner: boolean;
+}
+
+export interface LikeState {
+  liked: boolean;
+  likeCount: number;
 }
 
 export interface CurrentUser {

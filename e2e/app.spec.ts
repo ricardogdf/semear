@@ -115,7 +115,7 @@ test.describe("celular", () => {
 test.describe("autorização administrativa", () => {
   test("usuário comum não vê nem acessa a administração", async ({ page }) => {
     await loginAs(page, "user@e2e.test");
-    await expect(page.getByRole("link", { name: "Usuários" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Usuários", exact: true })).toHaveCount(0);
     await page.goto("/admin/users");
     await expect(page).toHaveURL(/\/dashboard/);
     const status = await page.evaluate(async () => (await fetch("/api/admin/users")).status);
@@ -237,5 +237,36 @@ test.describe("estudo e simulados", () => {
     await page.getByRole("button", { name: "Finalizar" }).click();
     await expect(page.getByRole("heading", { name: "Simulado concluído" })).toBeVisible();
     await expect(page.getByText("Ciências Ambientais · Módulo Hidrologia")).toBeVisible();
+  });
+
+  test("marca a aula como concluída e recolhe o módulo concluído", async ({ page }) => {
+    await loginAs(page, "admin@e2e.test");
+    await page.goto("/subjects");
+    await page.getByRole("link", { name: "Ciências Ambientais" }).first().click();
+
+    const hydrology = page.getByRole("button", { name: /^Hidrologia \(1\)/ });
+    await expect(hydrology).toHaveAttribute("aria-expanded", "true");
+    await expect(hydrology).toContainText("0/1 concluídas");
+
+    await page.getByRole("button", { name: /Ciclo da água/ }).click();
+    await page.getByRole("button", { name: "Marcar aula como concluída" }).click();
+    await expect(page.getByText("Aula marcada como concluída.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Desmarcar aula como concluída" })).toBeVisible();
+    await expect(page.getByText("Todas as aulas concluídas")).toBeVisible();
+
+    // Módulo com todas as aulas concluídas fica recolhido; o usuário pode reabrir e a escolha persiste.
+    await expect(hydrology).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("button", { name: /Ciclo da água/ })).toBeHidden();
+    await hydrology.click();
+    await expect(hydrology).toHaveAttribute("aria-expanded", "true");
+    await page.reload();
+    await expect(page.getByRole("button", { name: /^Hidrologia \(1\)/ })).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("button", { name: /Ciclo da água/ })).toBeVisible();
+
+    // Desmarcar devolve a aula ao estado pendente.
+    await page.getByRole("button", { name: /Ciclo da água/ }).click();
+    await page.getByRole("button", { name: "Desmarcar aula como concluída" }).click();
+    await expect(page.getByText("Aula desmarcada como concluída.")).toBeVisible();
+    await expect(page.getByText("0 de 1 aula(s) concluída(s)")).toBeVisible();
   });
 });

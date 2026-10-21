@@ -1,5 +1,6 @@
 import type {
   AiProviderValue,
+  PublicationTypeValue,
   ContentClassificationValue,
   ContentProcessingStatusValue,
   SubjectStatusValue,
@@ -152,4 +153,37 @@ export function describeProcessingStatus(
     return "Aula administrativa: geração de questões não necessária";
   }
   return processingStatusLabels[status];
+}
+
+export const publicationTypeLabels: Record<PublicationTypeValue, string> = {
+  ARTICLE: "Artigo",
+  TCC: "TCC",
+  THESIS: "Dissertação ou tese",
+  OTHER: "Outra publicação",
+};
+
+/** "1 seguidor", "18 seguidores" etc. */
+export function formatCount(count: number, singular: string, plural: string) {
+  return `${count.toLocaleString("pt-BR")} ${count === 1 ? singular : plural}`;
+}
+
+export function formatImportCount(count: number) {
+  if (count === 0) return "Ainda não importada";
+  return count === 1 ? "Importada 1 vez" : `Importada ${count.toLocaleString("pt-BR")} vezes`;
+}
+
+/** Data AAAA-MM-DD (sem fuso) no formato brasileiro. */
+export function formatDateOnly(value: string) {
+  const [year, month, day] = value.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+/** Iniciais para avatares sem foto. */
+export function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
 }

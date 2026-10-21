@@ -11,9 +11,9 @@ export function PublicHeader({ authenticated }: { authenticated: boolean }) {
         </Link>
 
         <nav aria-label="Seções da página" className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-          <a href="#como-funciona" className="hover:text-foreground">Como funciona</a>
-          <a href="#funcionalidades" className="hover:text-foreground">Funcionalidades</a>
-          <a href="#solicitar-acesso" className="hover:text-foreground">Solicitar acesso</a>
+          <Link href="/#como-funciona" className="hover:text-foreground">Como funciona</Link>
+          <Link href="/#funcionalidades" className="hover:text-foreground">Funcionalidades</Link>
+          <Link href="/#solicitar-acesso" className="hover:text-foreground">Solicitar acesso</Link>
         </nav>
 
         <Link

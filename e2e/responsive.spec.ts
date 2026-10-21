@@ -12,8 +12,24 @@ const viewports = [
   { name: "desktop", width: 1440, height: 900 },
 ];
 
-const publicPages = ["/", "/login", "/first-access"];
-const privatePages = ["/dashboard", "/subjects", "/simulations", "/settings/ai", "/settings/account", "/admin/users", "/admin/access-requests"];
+/** Páginas compartilháveis da comunidade (abrem sem login). */
+const sharedPages = ["/profile/e2e-diana", "/library/e2e-genetica", "/publications/e2e-artigo"];
+const publicPages = ["/", "/login", "/first-access", ...sharedPages];
+const privatePages = [
+  "/dashboard",
+  "/subjects",
+  "/simulations",
+  "/settings/ai",
+  "/settings/account",
+  "/settings/profile",
+  "/people",
+  "/following",
+  "/discover",
+  "/library",
+  ...sharedPages,
+  "/admin/users",
+  "/admin/access-requests",
+];
 
 for (const viewport of viewports) {
   test.describe(`responsividade: ${viewport.name}`, () => {

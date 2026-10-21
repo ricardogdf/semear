@@ -1,6 +1,14 @@
 import { z } from "zod";
 
-import { accessRequestStatusValues, aiProviderValues, subjectStatusValues, userRoleValues } from "./types";
+import {
+  accessRequestStatusValues,
+  aiProviderValues,
+  publicationTypeValues,
+  rankingValues,
+  subjectStatusValues,
+  userRoleValues,
+  visibilityValues,
+} from "./types";
 
 /**
  * Schemas de entrada compartilhados entre frontend (validação imediata) e backend
@@ -135,10 +143,14 @@ export const uploadContentSchema = z.object({
 /** Criação e renomeação de módulo. */
 export const moduleSchema = z.object({ title: moduleTitle }).strict();
 
-/** Move a aula para outro módulo da mesma matéria (null: sem módulo). */
+/** Move a aula para outro módulo da mesma matéria (null: sem módulo) e/ou a marca como concluída. */
 export const updateContentSchema = z
-  .object({ moduleId: z.string().trim().min(1).max(64).nullable() })
-  .strict();
+  .object({
+    moduleId: z.string().trim().min(1).max(64).nullable().optional(),
+    completed: z.boolean().optional(),
+  })
+  .strict()
+  .refine((data) => data.moduleId !== undefined || data.completed !== undefined, "Nenhuma alteração informada.");
 
 export const simulationSubmissionSchema = z.object({
   answers: z
@@ -168,3 +180,116 @@ export const updateSubjectSchema = z
     progress: z.number().int().min(0).max(100).optional(),
   })
   .strict();
+
+// ---------- Comunidade ----------
+
+/** Campo enviado vazio vira null (limpa o valor); campo ausente continua ausente (não altera). */
+const emptyToNull = (value: string | null | undefined) => (value === undefined ? undefined : value || null);
+
+/** Texto opcional: vazio limpa o campo. */
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label}: use no máximo ${max} caracteres.`)
+    .nullish()
+    .transform(emptyToNull);
+
+function isUrlWithProtocol(value: string, protocols: string[]) {
+  try {
+    const url = new URL(value);
+    return protocols.includes(url.protocol) && Boolean(url.hostname) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+/** URL opcional com protocolo permitido (bloqueia javascript:, data: e credenciais embutidas). */
+const optionalUrl = (protocols: string[], message: string) =>
+  z
+    .string()
+    .trim()
+    .max(500, "Endereço longo demais.")
+    .nullish()
+    .transform(emptyToNull)
+    .refine((value) => !value || isUrlWithProtocol(value, protocols), message);
+
+/** Recusa datas que não existem no calendário (ex.: 2024-02-31). */
+function isRealDate(value: string) {
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/** Campos públicos do perfil, editáveis só pelo próprio usuário. */
+export const updateProfileSchema = z
+  .object({
+    displayName: optionalText(80, "Nome de exibição"),
+    bio: optionalText(500, "Biografia"),
+    institution: optionalText(120, "Instituição"),
+    course: optionalText(120, "Curso"),
+    avatarUrl: optionalUrl(["https:"], "Use um endereço de imagem que comece com https://."),
+  })
+  .strict();
+
+const pageParam = z.coerce.number().int().min(1, "Página inválida.").max(500, "Página inválida.").default(1);
+const searchText = (max: number) => z.string().trim().max(max, "Pesquisa longa demais.").default("");
+
+export const userSearchSchema = z.object({
+  q: searchText(80),
+  institution: searchText(120),
+  course: searchText(120),
+  page: pageParam,
+});
+
+export const pageQuerySchema = z.object({ page: pageParam });
+
+export const librarySearchSchema = z.object({
+  q: searchText(120),
+  sort: z.enum(["recent", "popular"]).default("recent"),
+  page: pageParam,
+});
+
+export const publicationSearchSchema = z.object({ q: searchText(120), page: pageParam });
+
+export const rankingSchema = z.enum(rankingValues);
+
+/** Publica ou despublica uma matéria original (cópias importadas são recusadas no servidor). */
+export const subjectVisibilitySchema = z
+  .object({
+    visibility: z.enum(visibilityValues),
+    description: z.string().trim().max(1000, "Descrição: use no máximo 1000 caracteres.").optional(),
+  })
+  .strict();
+
+const publicationFields = {
+  type: z.enum(publicationTypeValues, { errorMap: () => ({ message: "Escolha o tipo da publicação." }) }),
+  title: z.string({ required_error: "Informe o título." }).trim().min(3, "Informe o título.").max(300, "Título longo demais."),
+  authors: z
+    .string({ required_error: "Informe o(s) autor(es)." })
+    .trim()
+    .min(2, "Informe o(s) autor(es).")
+    .max(500, "Lista de autores longa demais."),
+  abstract: z.string().trim().max(5000, "Resumo: use no máximo 5000 caracteres.").default(""),
+  institution: optionalText(160, "Instituição"),
+  publishedOn: z
+    .string()
+    .trim()
+    .nullish()
+    .transform(emptyToNull)
+    .refine(
+      (value) =>
+        !value ||
+        (/^\d{4}-\d{2}-\d{2}$/.test(value) && isRealDate(value) && value >= "1900-01-01" && value <= "2100-12-31"),
+      "Data de publicação inválida.",
+    ),
+  externalUrl: optionalUrl(["https:", "http:"], "Use um endereço que comece com https:// ou http://."),
+  visibility: z.enum(visibilityValues),
+};
+
+export const createPublicationSchema = z.object(publicationFields).strict();
+
+export const updatePublicationSchema = z
+  .object(publicationFields)
+  .partial()
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, "Nenhuma alteração informada.");

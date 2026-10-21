@@ -17,6 +17,7 @@ interface ModuleStatsContent {
   moduleId: string | null;
   processingStatus: ContentProcessingStatus;
   trainingQuestions: Prisma.JsonValue;
+  completedAt?: Date | null;
 }
 
 /** Questões disponíveis para simulado: só as das aulas com conteúdo didático processado. */
@@ -61,6 +62,7 @@ export function buildModuleSnapshots(
         id: entry.id,
         title: entry.title,
         contentCount: lessons.length,
+        completedCount: lessons.filter((content) => content.completedAt).length,
         availableQuestionCount: countAvailableQuestions(lessons),
         score: stats && stats.total > 0 ? normalizeScore(stats.correct, stats.total) : null,
         attemptedQuestions: stats?.total ?? 0,

@@ -18,7 +18,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui";
-import { formatStatusLabel, getStatusVariant, type SubjectStatusValue } from "@/lib/utils";
+import { formatStatusLabel, getStatusVariant, type SubjectScoreSnapshot, type SubjectStatusValue } from "@/lib/utils";
 
 import { getSubjects } from "@/lib/api";
 
@@ -28,6 +28,25 @@ const filters: Array<{ value: "all" | SubjectStatusValue; label: string }> = [
   { value: "APPROVED", label: "Aprovadas" },
   { value: "FAILED", label: "Reprovadas" },
 ];
+
+/** Origem e visibilidade da matéria na biblioteca pessoal. */
+function LibraryBadges({ subject }: { subject: SubjectScoreSnapshot }) {
+  if (!subject.isImported && subject.visibility !== "PUBLIC") return null;
+  return (
+    <span className="ml-2 inline-flex gap-1 align-middle">
+      {subject.isImported ? (
+        <Badge variant="secondary" className="px-2 py-0 text-[10px]">
+          Importada
+        </Badge>
+      ) : null}
+      {subject.visibility === "PUBLIC" ? (
+        <Badge variant="success" className="px-2 py-0 text-[10px]">
+          Pública
+        </Badge>
+      ) : null}
+    </span>
+  );
+}
 
 export function SubjectsTable() {
   const [status, setStatus] = useState<"all" | SubjectStatusValue>("all");
@@ -50,7 +69,11 @@ export function SubjectsTable() {
           Matérias
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Nota da matéria: média das notas mais recentes de cada simulado, na escala de 0 a 10.
+          Sua biblioteca pessoal: matérias próprias e importadas da{" "}
+          <Link href="/library" className="font-medium text-primary underline-offset-4 hover:underline">
+            biblioteca pública
+          </Link>
+          . Nota da matéria: média das notas mais recentes de cada simulado, na escala de 0 a 10.
         </p>
       </header>
 
@@ -100,7 +123,10 @@ export function SubjectsTable() {
                   className="block rounded-3xl border border-border/60 bg-card p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium">{subject.title}</p>
+                    <p className="font-medium">
+                      {subject.title}
+                      <LibraryBadges subject={subject} />
+                    </p>
                     <Badge variant={getStatusVariant(subject.status)} className="shrink-0">
                       {formatStatusLabel(subject.status)}
                     </Badge>
@@ -150,6 +176,7 @@ export function SubjectsTable() {
                       >
                         {subject.title}
                       </Link>
+                      <LibraryBadges subject={subject} />
                       <p className="mt-1 text-xs text-muted-foreground">
                         Média histórica {subject.averageScore.toFixed(1)}/10 · {subject.attemptCount} tentativa(s)
                       </p>
