@@ -5,6 +5,17 @@ import type {
   ContentDetailSnapshot,
   CurrentUser,
   DashboardOverview,
+  FollowState,
+  ImportResult,
+  LikeState,
+  OwnProfileSnapshot,
+  Page,
+  PublicationSnapshot,
+  PublicationTypeValue,
+  PublicSubjectCardSnapshot,
+  RankingValue,
+  UserCardSnapshot,
+  VisibilityValue,
   SimulationSnapshot,
   SimulationSubjectSnapshot,
   SimulationSubmissionResult,
@@ -165,6 +176,89 @@ export const submitSimulation = (
     `/api/simulations/${encodeURIComponent(simulationId)}/submit`,
     json("POST", { answers }),
   );
+
+// ---------- Comunidade ----------
+
+/** Monta a query string ignorando valores vazios. */
+function toQuery(values: Record<string, string | number | undefined>) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+export const getOwnProfile = () => request<OwnProfileSnapshot>("/api/profile");
+
+export const updateOwnProfile = (body: Partial<Omit<OwnProfileSnapshot, "id" | "name">>) =>
+  request<OwnProfileSnapshot>("/api/profile", json("PATCH", body));
+
+export interface UserSearchFilters {
+  q: string;
+  institution: string;
+  course: string;
+}
+
+export const searchUsers = (filters: UserSearchFilters, page: number) =>
+  request<Page<UserCardSnapshot>>(`/api/users${toQuery({ ...filters, page })}`);
+
+export const followUser = (userId: string) =>
+  request<FollowState>(`/api/users/${encodeURIComponent(userId)}/follow`, json("PUT"));
+
+export const unfollowUser = (userId: string) =>
+  request<FollowState>(`/api/users/${encodeURIComponent(userId)}/follow`, json("DELETE"));
+
+export const getFollowing = (page: number) => request<Page<UserCardSnapshot>>(`/api/following${toQuery({ page })}`);
+
+export const setSubjectVisibility = (subjectId: string, body: { visibility: VisibilityValue; description?: string }) =>
+  request<SubjectDetailSnapshot>(`/api/subjects/${encodeURIComponent(subjectId)}/visibility`, json("PUT", body));
+
+export const getLibrary = (filters: { q: string; sort: "recent" | "popular" }, page: number) =>
+  request<Page<PublicSubjectCardSnapshot>>(`/api/library${toQuery({ ...filters, page })}`);
+
+export const importSubject = (subjectId: string) =>
+  request<ImportResult>(`/api/library/${encodeURIComponent(subjectId)}/import`, json("POST"));
+
+export const getPublications = (q: string, page: number) =>
+  request<Page<PublicationSnapshot>>(`/api/publications${toQuery({ q, page })}`);
+
+export const getOwnPublications = () => request<PublicationSnapshot[]>("/api/publications?mine=1");
+
+export interface PublicationPayload {
+  type: PublicationTypeValue;
+  title: string;
+  authors: string;
+  abstract: string;
+  institution: string;
+  publishedOn: string;
+  externalUrl: string;
+  visibility: VisibilityValue;
+}
+
+export const createPublication = (body: PublicationPayload) =>
+  request<PublicationSnapshot>("/api/publications", json("POST", body));
+
+export const updatePublication = (publicationId: string, body: Partial<PublicationPayload>) =>
+  request<PublicationSnapshot>(`/api/publications/${encodeURIComponent(publicationId)}`, json("PATCH", body));
+
+export const deletePublication = (publicationId: string) =>
+  request<{ ok: true }>(`/api/publications/${encodeURIComponent(publicationId)}`, json("DELETE"));
+
+export const likePublication = (publicationId: string) =>
+  request<LikeState>(`/api/publications/${encodeURIComponent(publicationId)}/like`, json("PUT"));
+
+export const unlikePublication = (publicationId: string) =>
+  request<LikeState>(`/api/publications/${encodeURIComponent(publicationId)}/like`, json("DELETE"));
+
+export interface RankingItems {
+  subjects: PublicSubjectCardSnapshot;
+  publications: PublicationSnapshot;
+  profiles: UserCardSnapshot;
+}
+
+export const getRanking = <K extends RankingValue>(ranking: K, page: number) =>
+  request<Page<RankingItems[K]>>(`/api/discover/${ranking}${toQuery({ page })}`);
 
 // ---------- Provedores de IA ----------
 
