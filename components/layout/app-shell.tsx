@@ -63,7 +63,13 @@ function Navigation({ user, collapsed, onNavigate }: { user: CurrentUser; collap
               {section.title}
             </p>
             {section.items.map((item) => (
-              <NavLink key={item.href} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+              <NavLink
+                key={item.href}
+                // "Meu perfil" aponta para o próprio perfil: fica ativo só nele, não no de outras pessoas.
+                item={item.href === "/profile" ? { ...item, href: `/profile/${user.id}` } : item}
+                collapsed={collapsed}
+                onNavigate={onNavigate}
+              />
             ))}
           </div>
         ))}

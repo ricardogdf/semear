@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -5,11 +6,14 @@ import { getSessionUser, type SessionUser } from "@/server/db";
 
 import { SESSION_COOKIE } from "./session";
 
-/** Usuário da sessão atual em Server Components (null se não autenticado). */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+/**
+ * Usuário da sessão atual em Server Components (null se não autenticado). Memorizado por
+ * requisição: layout, página e metadados consultam a sessão uma única vez.
+ */
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const store = await cookies();
   return getSessionUser(store.get(SESSION_COOKIE)?.value);
-}
+});
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();

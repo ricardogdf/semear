@@ -1,4 +1,19 @@
-import { BookOpen, ClipboardList, Inbox, KeyRound, LayoutDashboard, Sparkles, Users, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  ClipboardList,
+  Compass,
+  IdCard,
+  Inbox,
+  KeyRound,
+  LayoutDashboard,
+  Library,
+  Sparkles,
+  UserCheck,
+  UserRound,
+  UserRoundSearch,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -22,8 +37,19 @@ export const navigationSections: NavSection[] = [
     ],
   },
   {
+    title: "Comunidade",
+    items: [
+      { href: "/profile", label: "Meu perfil", icon: UserRound },
+      { href: "/people", label: "Pesquisar usuários", icon: UserRoundSearch },
+      { href: "/following", label: "Seguindo", icon: UserCheck },
+      { href: "/discover", label: "Conheça", icon: Compass },
+      { href: "/library", label: "Biblioteca pública", icon: Library },
+    ],
+  },
+  {
     title: "Conta",
     items: [
+      { href: "/settings/profile", label: "Perfil público", icon: IdCard },
       { href: "/settings/ai", label: "Provedores de IA", icon: Sparkles },
       { href: "/settings/account", label: "Senha e acesso", icon: KeyRound },
     ],
