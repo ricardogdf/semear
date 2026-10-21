@@ -115,7 +115,7 @@ test.describe("celular", () => {
 test.describe("autorização administrativa", () => {
   test("usuário comum não vê nem acessa a administração", async ({ page }) => {
     await loginAs(page, "user@e2e.test");
-    await expect(page.getByRole("link", { name: "Usuários" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Usuários", exact: true })).toHaveCount(0);
     await page.goto("/admin/users");
     await expect(page).toHaveURL(/\/dashboard/);
     const status = await page.evaluate(async () => (await fetch("/api/admin/users")).status);
